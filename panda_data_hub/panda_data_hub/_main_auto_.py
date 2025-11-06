@@ -33,12 +33,16 @@ if __name__ == "__main__":
         # 创建并启动调度器（股票）
         manager.data_scheduler = DataScheduler()
         manager.data_scheduler.schedule_data()
+        manager.data_scheduler.schedule_financial_data()
+        manager.data_scheduler.schedule_dividend_data()
         # 创建并启动调度器（因子）
         manager.factor_scheduler = FactorCleanerScheduler()
         manager.factor_scheduler.schedule_data()
 
         logger.info("Factor scheduler started successfully")
         logger.info("Data scheduler started successfully")
+        logger.info("Financial scheduler started successfully")
+        logger.info("Dividend scheduler started successfully")
 
         while True:
             time.sleep(1)

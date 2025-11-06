@@ -11,7 +11,7 @@ from fastapi.responses import Response, HTMLResponse
 import base64
 
 # Import data hub routes
-from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean
+from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, dividend_data_clean, index_market_data_clean
 from panda_data_hub.routes.config import config_redefine
 from panda_data_hub.routes.query import data_query
 
@@ -43,6 +43,8 @@ app.include_router(config_redefine.router, prefix="/datahub/api/v1", tags=["配�
 app.include_router(factor_data_clean.router, prefix="/datahub/api/v1", tags=["因子数据清洗"])
 app.include_router(stock_market_data_clean.router, prefix="/datahub/api/v1", tags=["股票市场数据清洗"])
 app.include_router(financial_data_clean.router, prefix="/datahub/api/v1", tags=["财务数据清洗"])
+app.include_router(dividend_data_clean.router, prefix="/datahub/api/v1", tags=["分红数据清洗"])
+app.include_router(index_market_data_clean.router, prefix="/datahub/api/v1", tags=["指数行情数据清洗"])
 
 # AI对话API
 app.include_router(chat_router.router, prefix="/llm", tags=["AI对话"])
@@ -123,6 +125,36 @@ async def stock_market_clean():
             return HTMLResponse(content=f.read())
     else:
         return HTMLResponse(content="<h1>股票行情清洗页面未找到</h1><p>请确保 stock_market_clean.html 文件存在</p>", status_code=404)
+
+@app.get("/factor-data-clean")
+async def factor_data_clean_page():
+    """因子数据清洗页面"""
+    html_file = frontend_dir / "factor_data_clean.html"
+    if html_file.exists():
+        with open(html_file, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(content="<h1>因子数据清洗页面未找到</h1><p>请确保 factor_data_clean.html 文件存在</p>", status_code=404)
+
+@app.get("/dividend-data-clean")
+async def dividend_data_clean_page():
+    """分红数据清洗页面"""
+    html_file = frontend_dir / "dividend_data_clean.html"
+    if html_file.exists():
+        with open(html_file, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(content="<h1>分红数据清洗页面未找到</h1><p>请确保 dividend_data_clean.html 文件存在</p>", status_code=404)
+
+@app.get("/index-market-clean")
+async def index_market_clean_page():
+    """指数行情清洗页面"""
+    html_file = frontend_dir / "index_market_clean.html"
+    if html_file.exists():
+        with open(html_file, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(content="<h1>指数行情清洗页面未找到</h1><p>请确保 index_market_clean.html 文件存在</p>", status_code=404)
 
 # ============================================================
 # 根路由
@@ -312,14 +344,13 @@ async def navigation_home():
     <body>
         <div class="container">
             <div class="header">
-                <div class="logo">♏ 天蝎座</div>
+                <div class="logo">天蝎座</div>
                 <div class="subtitle">量化投资系统 · 数据管理中心</div>
             </div>
             
             <div class="nav-grid">
                 <a href="/factor/" class="nav-item">
                     <div class="nav-title">
-                        <span class="nav-icon">🏠</span>
                         因子管理主页
                     </div>
                     <div class="nav-desc">
@@ -329,7 +360,6 @@ async def navigation_home():
                 
                 <a href="/system-config" class="nav-item">
                     <div class="nav-title">
-                        <span class="nav-icon">⚙️</span>
                         系统配置
                     </div>
                     <div class="nav-desc">
@@ -339,7 +369,6 @@ async def navigation_home():
                 
                 <a href="/data-statistics" class="nav-item">
                     <div class="nav-title">
-                        <span class="nav-icon">📊</span>
                         数据列表查看
                     </div>
                     <div class="nav-desc">
@@ -349,7 +378,6 @@ async def navigation_home():
                 
                 <a href="/stock-market-clean" class="nav-item">
                     <div class="nav-title">
-                        <span class="nav-icon">🧹</span>
                         股票行情清洗
                     </div>
                     <div class="nav-desc">
@@ -357,23 +385,39 @@ async def navigation_home():
                     </div>
                 </a>
                 
-                <a href="/factor/#/datahubFactorClean" class="nav-item">
+                <a href="/factor-data-clean" class="nav-item">
                     <div class="nav-title">
-                        <span class="nav-icon">🔧</span>
                         因子数据清洗
                     </div>
                     <div class="nav-desc">
-                        清洗技术指标和自定义因子数据
+                        清洗基础市场因子（市值、换手率、成交额等）
                     </div>
                 </a>
                 
                 <a href="/financial-data-clean" class="nav-item">
                     <div class="nav-title">
-                        <span class="nav-icon">💰</span>
                         财务数据清洗
                     </div>
                     <div class="nav-desc">
-                        清洗财务指标、利润表、资产负债表和现金流量表数据
+                        清洗财务指标、利润表、资产负债表、现金流量表
+                    </div>
+                </a>
+                
+                <a href="/dividend-data-clean" class="nav-item">
+                    <div class="nav-title">
+                        分红数据清洗
+                    </div>
+                    <div class="nav-desc">
+                        清洗股票分红数据（送股、转增、现金分红等）
+                    </div>
+                </a>
+                
+                <a href="/index-market-clean" class="nav-item">
+                    <div class="nav-title">
+                        指数行情清洗
+                    </div>
+                    <div class="nav-desc">
+                        清洗主要指数行情数据（上证、深证、沪深300等）
                     </div>
                 </a>
             </div>

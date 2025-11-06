@@ -120,7 +120,13 @@ def ts_is_trading_day(date):
         # 每次调用时都重新获取配置并设置token，确保使用最新的token
         from panda_common.config import get_config
         config = get_config()
-        ts.set_token(config['TS_TOKEN'])
+        ts_token = config.get('TS_TOKEN')
+        if not ts_token:
+            raise ValueError(
+                "TS_TOKEN 未配置。请在配置文件 panda_common/config.yaml 中设置 TS_TOKEN。\n"
+                "您可以在 https://tushare.pro/ 注册并获取 Token。"
+            )
+        ts.set_token(ts_token)
         
         # 获取指定日期的交易日历信息
         cal_df = ts.pro_api().query('trade_cal',
@@ -153,10 +159,11 @@ def validate_tushare_token():
         from panda_common.config import get_config
         config = get_config()
         
-        if not config.get('TS_TOKEN'):
+        ts_token = config.get('TS_TOKEN')
+        if not ts_token:
             return False, "未配置 Tushare Token，请在配置文件中设置 TS_TOKEN"
         
-        ts.set_token(config['TS_TOKEN'])
+        ts.set_token(ts_token)
         
         # 尝试调用一个简单的 API 来验证 token
         from datetime import datetime

@@ -1,9 +1,7 @@
 from abc import ABC
 import tushare as ts
 import traceback
-from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor
-from tqdm import tqdm
+from datetime import datetime
 
 from panda_common.handlers.database_handler import DatabaseHandler
 from panda_common.logger_config import logger
@@ -20,7 +18,14 @@ class FinancialCleanTSService(ABC):
         self.progress_callback = None
         
         try:
-            ts.set_token(config['TS_TOKEN'])
+            # 检查 TS_TOKEN 是否存在
+            ts_token = config.get('TS_TOKEN')
+            if not ts_token:
+                raise ValueError(
+                    "TS_TOKEN 未配置。请在配置文件 panda_common/config.yaml 中设置 TS_TOKEN。\n"
+                    "您可以在 https://tushare.pro/ 注册并获取 Token。"
+                )
+            ts.set_token(ts_token)
             self.pro = ts.pro_api()
         except Exception as e:
             error_msg = f"Failed to initialize tushare: {str(e)}\nStack trace:\n{traceback.format_exc()}"
@@ -119,7 +124,7 @@ class FinancialCleanTSService(ABC):
             data_types: 数据类型列表，如：['income', 'balance', 'cashflow', 'indicator']
                        如果为None，则清洗所有类型
         """
-        logger.info(f"📅 历史数据清洗: {start_date} ~ {end_date}")
+        logger.info(f"历史数据清洗: {start_date} ~ {end_date}")
         # 转换为报告期范围格式
         periods = {"start": start_date, "end": end_date}
         return self.clean_financial_by_periods(symbols, periods, data_types)
@@ -196,7 +201,7 @@ class FinancialCleanTSService(ABC):
                 elif data_type == 'indicator':
                     result = self.cleaner.clean_financial_indicator(ts_symbols, periods, use_vip)
                 else:
-                    logger.warning(f"❓ 未知的数据类型: {data_type}")
+                    logger.warning(f"未知的数据类型: {data_type}")
                     continue
                 
             except Exception as e:
@@ -246,16 +251,16 @@ class FinancialCleanTSService(ABC):
             symbols: 股票代码列表（pandas格式），如果为None则更新所有股票
             data_types: 数据类型列表，如果为None则更新所有类型
         """
-        logger.info("📅 开始每日财务数据更新")
+        logger.info("开始每日财务数据更新")
         
         # 获取最近2个季度
         recent_quarters = self.get_recent_quarters(num_quarters=2)
         
         if not recent_quarters:
-            logger.warning("⚠️  未找到需要更新的季度")
+            logger.warning("未找到需要更新的季度")
             return
         
-        logger.info(f"📋 更新季度: {', '.join(recent_quarters)}")
+        logger.info(f"更新季度: {', '.join(recent_quarters)}")
         
         # 使用最早和最晚的季度作为日期范围
         start_date = recent_quarters[-1]  # 最早的季度
@@ -264,5 +269,5 @@ class FinancialCleanTSService(ABC):
         # 调用历史清洗方法
         self.financial_history_clean(start_date, end_date, symbols, data_types)
         
-        logger.info("🎉 每日财务数据更新完成")
+        logger.info("每日财务数据更新完成")
 

@@ -274,7 +274,7 @@ def factor_analysis(df_factor: pd.DataFrame, params: Params, factor_id: str = ""
 
             return result_df
 
-        last_date_top_factor_tmp = df_factor[df_factor['date'] == latest_date].sort_values(by=factor_list[0],
+        last_date_top_factor_tmp = df[df['date'] == latest_date].sort_values(by=factor_list[0],
                                                                                            ascending=False).head(20)
         last_date_top_factor_tmp = enrich_stock_data(last_date_top_factor_tmp)
         # Progress bar: In-depth factor analysis

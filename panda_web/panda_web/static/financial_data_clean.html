@@ -395,6 +395,52 @@
             margin-top: 8px;
             font-style: italic;
         }
+
+        .financial-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .financial-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #28a745;
+        }
+
+        .financial-card h4 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .financial-card .data-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .financial-card .data-item:last-child {
+            border-bottom: none;
+        }
+
+        .financial-card .data-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .financial-card .data-value {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -606,16 +652,130 @@
 
             <div id="errorMessage" class="error-message" style="display: none;"></div>
         </div>
+
+        <!-- 数据查询展示 -->
+        <div class="section">
+            <div class="section-title">
+                <span>📊</span>
+                <span>财务数据查询统计</span>
+            </div>
+            
+            <!-- 统计概览模式 -->
+            <div style="margin-bottom: 30px; padding-bottom: 30px; border-bottom: 2px solid #e0e0e0;">
+                <h4 style="color: #666; font-size: 14px; margin-bottom: 15px;">📈 统计概览（最近4季度）</h4>
+                <div class="btn-group" style="margin-bottom: 20px;">
+                    <button class="btn btn-primary" onclick="loadFinancialStats()">
+                        <span>🔍</span>
+                        <span>查询统计数据</span>
+                    </button>
+                    <button class="btn btn-secondary" onclick="refreshFinancialStats()">
+                        <span>🔄</span>
+                        <span>刷新</span>
+                    </button>
+                </div>
+                
+                <div id="financialStatsSection" style="display: none;">
+                    <div id="financialCardsContainer" class="financial-cards">
+                        <!-- 财务数据卡片将通过 JavaScript 动态生成 -->
+                    </div>
+                </div>
+                
+                <div id="financialStatsLoading" style="display: none; text-align: center; padding: 40px; color: #666;">
+                    正在加载财务数据统计...
+                </div>
+                
+                <div id="financialStatsError" style="display: none; background: #ffebee; border-left: 4px solid #f44336; padding: 15px; border-radius: 8px; color: #c62828;">
+                </div>
+            </div>
+            
+            <!-- 详细查询模式 -->
+            <div>
+                <h4 style="color: #666; font-size: 14px; margin-bottom: 15px;">🔍 详细数据查询（指定报告期/股票/表）</h4>
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label>选择数据表</label>
+                            <select id="queryTableName" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                                <option value="financial_indicator">📊 财务指标</option>
+                                <option value="financial_income">💵 利润表</option>
+                                <option value="financial_balance">📈 资产负债表</option>
+                                <option value="financial_cashflow">💧 现金流量表</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>选择报告期</label>
+                            <select id="queryPeriod" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                                <option value="">请选择报告期</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>股票代码（可选）</label>
+                            <input type="text" id="querySymbol" placeholder="如: 000001.SZ" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                            <div class="helper-text">留空查询所有股票</div>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="queryFinancialData(1)">
+                            <span>🔍</span>
+                            <span>开始查询</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetQueryForm()">
+                            <span>🔄</span>
+                            <span>重置</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 查询结果 -->
+                <div id="queryResultSection" style="display: none;">
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #2196f3;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <strong>查询结果：</strong>
+                                <span id="queryResultInfo">-</span>
+                            </div>
+                            <div>
+                                <strong>总计：</strong>
+                                <span id="queryResultCount" style="color: #2196f3; font-size: 18px; font-weight: 600;">0</span> 条
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="overflow-x: auto;">
+                        <table id="queryResultTable" style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
+                            <thead id="queryTableHeader" style="background: #f8f9fa; position: sticky; top: 0;">
+                            </thead>
+                            <tbody id="queryTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div id="queryPagination" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
+                    </div>
+                </div>
+                
+                <div id="queryResultLoading" style="display: none; text-align: center; padding: 40px; color: #666;">
+                    正在查询数据...
+                </div>
+                
+                <div id="queryResultError" style="display: none; background: #ffebee; border-left: 4px solid #f44336; padding: 15px; border-radius: 8px; color: #c62828;">
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         let progressInterval = null;
 
-        // 生成报告期选项（最近8个季度）
+        // 生成报告期选项（从2010年开始）
         function generatePeriodOptions() {
             const options = [];
             const now = new Date();
             const currentYear = now.getFullYear();
+            const startYear = 2010;  // 从2010年开始
             
             const quarters = [
                 { month: 3, day: 31, label: 'Q1' },
@@ -624,9 +784,9 @@
                 { month: 12, day: 31, label: 'Q4' },
             ];
             
-            let count = 0;
-            for (let year = currentYear; year >= currentYear - 2 && count < 8; year--) {
-                for (let i = quarters.length - 1; i >= 0 && count < 8; i--) {
+            // 从当前年份往前遍历到2010年
+            for (let year = currentYear; year >= startYear; year--) {
+                for (let i = quarters.length - 1; i >= 0; i--) {
                     const q = quarters[i];
                     const periodDate = new Date(year, q.month - 1, q.day);
                     
@@ -635,7 +795,6 @@
                         const value = `${year}${String(q.month).padStart(2, '0')}${String(q.day).padStart(2, '0')}`;
                         const label = `${year}${q.label} (${value})`;
                         options.push({ label, value });
-                        count++;
                     }
                 }
             }
@@ -674,6 +833,9 @@
 
             // 生成报告期选项
             populatePeriodSelects();
+            
+            // 为查询表单也生成报告期选项
+            populateQueryPeriodSelect();
 
             // 监听日期模式切换
             document.querySelectorAll('input[name="date_mode"]').forEach(radio => {
@@ -970,6 +1132,287 @@
             document.getElementById('stockCodes').disabled = true;
             document.getElementById('progressSection').style.display = 'none';
             stopProgressPolling();
+        }
+
+        // 加载财务数据统计
+        async function loadFinancialStats() {
+            const container = document.getElementById('financialCardsContainer');
+            const statsSection = document.getElementById('financialStatsSection');
+            const loadingDiv = document.getElementById('financialStatsLoading');
+            const errorDiv = document.getElementById('financialStatsError');
+            
+            // 显示加载状态
+            statsSection.style.display = 'none';
+            errorDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            
+            try {
+                const response = await fetch('/datahub/api/v1/financial_stats_by_quarter');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success || !result.data || result.data.length === 0) {
+                    throw new Error('查询失败或无数据');
+                }
+                
+                // 图标映射
+                const icons = {
+                    'financial_indicator': '📊',
+                    'financial_income': '💵',
+                    'financial_balance': '📈',
+                    'financial_cashflow': '💧'
+                };
+                
+                // 生成卡片HTML
+                let cardsHTML = '';
+                result.data.forEach(tableData => {
+                    const icon = icons[tableData.table] || '📄';
+                    
+                    cardsHTML += `
+                        <div class="financial-card">
+                            <h4>${icon} ${tableData.label}</h4>
+                            <div class="data-item">
+                                <span class="data-label">数据表名</span>
+                                <span class="data-value">${tableData.table}</span>
+                            </div>
+                    `;
+                    
+                    // 添加各季度数据
+                    tableData.quarters.forEach(q => {
+                        const hasData = q.count > 0;
+                        const countText = hasData 
+                            ? `<strong style="color: #28a745;">${q.count.toLocaleString()} 条</strong>` 
+                            : '<span style="color: #999;">无数据</span>';
+                        
+                        cardsHTML += `
+                            <div class="data-item">
+                                <span class="data-label">${q.quarter}</span>
+                                <span class="data-value">${countText}</span>
+                            </div>
+                        `;
+                    });
+                    
+                    cardsHTML += `
+                            <div class="data-item" style="border-top: 2px solid #f0f0f0; margin-top: 8px; padding-top: 12px;">
+                                <span class="data-label"><strong>总计</strong></span>
+                                <span class="data-value"><strong style="color: #667eea;">${tableData.total.toLocaleString()} 条</strong></span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = cardsHTML;
+                loadingDiv.style.display = 'none';
+                statsSection.style.display = 'block';
+                
+            } catch (error) {
+                console.error('加载财务数据失败:', error);
+                loadingDiv.style.display = 'none';
+                errorDiv.textContent = `查询失败: ${error.message || '未知错误'}。请确保服务已重启以加载新的API。`;
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        // 刷新财务数据统计
+        function refreshFinancialStats() {
+            loadFinancialStats();
+        }
+
+        // 为查询表单填充报告期选项
+        function populateQueryPeriodSelect() {
+            const options = generatePeriodOptions();
+            const select = document.getElementById('queryPeriod');
+            
+            // 保留第一个默认选项
+            const defaultOption = select.querySelector('option[value=""]');
+            select.innerHTML = '';
+            if (defaultOption) {
+                select.appendChild(defaultOption);
+            }
+            
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.label;
+                select.appendChild(option);
+            });
+        }
+
+        // 查询财务数据
+        let currentQueryPage = 1;
+        let currentQueryParams = {};
+        
+        async function queryFinancialData(page = 1) {
+            const tableName = document.getElementById('queryTableName').value;
+            const endDate = document.getElementById('queryPeriod').value;
+            const symbol = document.getElementById('querySymbol').value.trim();
+            
+            if (!endDate) {
+                showQueryError('请选择报告期');
+                return;
+            }
+            
+            // 保存查询参数
+            currentQueryParams = { tableName, endDate, symbol };
+            currentQueryPage = page;
+            
+            // 显示加载状态
+            document.getElementById('queryResultSection').style.display = 'none';
+            document.getElementById('queryResultError').style.display = 'none';
+            document.getElementById('queryResultLoading').style.display = 'block';
+            
+            try {
+                const params = new URLSearchParams({
+                    table_name: tableName,
+                    end_date: endDate,
+                    page: page,
+                    page_size: 20
+                });
+                
+                if (symbol) {
+                    params.append('symbol', symbol);
+                }
+                
+                const response = await fetch(`/datahub/api/v1/query_financial_data?${params}`);
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || '查询失败');
+                }
+                
+                displayQueryResult(result);
+                
+            } catch (error) {
+                console.error('查询财务数据失败:', error);
+                showQueryError(`查询失败: ${error.message || '未知错误'}`);
+            } finally {
+                document.getElementById('queryResultLoading').style.display = 'none';
+            }
+        }
+
+        // 显示查询结果
+        function displayQueryResult(result) {
+            const { data, pagination, query } = result;
+            
+            // 获取表名的中文名称
+            const tableLabels = {
+                'financial_indicator': '财务指标',
+                'financial_income': '利润表',
+                'financial_balance': '资产负债表',
+                'financial_cashflow': '现金流量表'
+            };
+            
+            // 更新查询信息
+            const periodLabel = formatPeriodDate(query.end_date);
+            let infoText = `${tableLabels[query.table_name]} - ${periodLabel}`;
+            if (query.symbol) {
+                infoText += ` - 股票: ${query.symbol}`;
+            }
+            document.getElementById('queryResultInfo').textContent = infoText;
+            document.getElementById('queryResultCount').textContent = pagination.total.toLocaleString();
+            
+            if (data.length === 0) {
+                document.getElementById('queryTableBody').innerHTML = '<tr><td colspan="100" style="text-align: center; padding: 40px; color: #999;">暂无数据</td></tr>';
+                document.getElementById('queryResultSection').style.display = 'block';
+                return;
+            }
+            
+            // 生成表头
+            const firstRow = data[0];
+            const headers = Object.keys(firstRow);
+            let headerHTML = '<tr>';
+            headers.forEach(header => {
+                headerHTML += `<th style="padding: 10px; text-align: left; border-bottom: 2px solid #e0e0e0; white-space: nowrap;">${header}</th>`;
+            });
+            headerHTML += '</tr>';
+            document.getElementById('queryTableHeader').innerHTML = headerHTML;
+            
+            // 生成表体
+            let bodyHTML = '';
+            data.forEach((row, index) => {
+                bodyHTML += '<tr style="border-bottom: 1px solid #f0f0f0;">';
+                headers.forEach(header => {
+                    let value = row[header];
+                    // 格式化日期
+                    if ((header === 'end_date' || header === 'ann_date' || header === 'f_ann_date') && value && value.length === 8) {
+                        value = formatPeriodDate(value);
+                    }
+                    // 格式化数字
+                    else if (typeof value === 'number') {
+                        value = value.toLocaleString('zh-CN', { maximumFractionDigits: 4 });
+                    }
+                    // 空值处理
+                    else if (value === null || value === undefined) {
+                        value = '-';
+                    }
+                    
+                    bodyHTML += `<td style="padding: 10px; white-space: nowrap;">${value}</td>`;
+                });
+                bodyHTML += '</tr>';
+            });
+            document.getElementById('queryTableBody').innerHTML = bodyHTML;
+            
+            // 显示分页
+            displayQueryPagination(pagination);
+            
+            // 显示结果区域
+            document.getElementById('queryResultSection').style.display = 'block';
+        }
+
+        // 显示查询分页
+        function displayQueryPagination(pagination) {
+            const { page, total_pages, total } = pagination;
+            
+            const paginationHTML = `
+                <button onclick="queryFinancialData(1)" ${page === 1 ? 'disabled' : ''} 
+                    style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">
+                    首页
+                </button>
+                <button onclick="queryFinancialData(${page - 1})" ${page === 1 ? 'disabled' : ''}
+                    style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">
+                    上一页
+                </button>
+                <span style="color: #666; font-size: 14px;">
+                    第 ${page} / ${total_pages} 页，共 ${total} 条
+                </span>
+                <button onclick="queryFinancialData(${page + 1})" ${page >= total_pages ? 'disabled' : ''}
+                    style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">
+                    下一页
+                </button>
+                <button onclick="queryFinancialData(${total_pages})" ${page >= total_pages ? 'disabled' : ''}
+                    style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">
+                    末页
+                </button>
+            `;
+            
+            document.getElementById('queryPagination').innerHTML = paginationHTML;
+        }
+
+        // 格式化报告期日期
+        function formatPeriodDate(dateStr) {
+            if (!dateStr || dateStr.length !== 8) return dateStr;
+            return `${dateStr.substr(0, 4)}-${dateStr.substr(4, 2)}-${dateStr.substr(6, 2)}`;
+        }
+
+        // 显示查询错误
+        function showQueryError(message) {
+            document.getElementById('queryResultLoading').style.display = 'none';
+            document.getElementById('queryResultSection').style.display = 'none';
+            document.getElementById('queryResultError').textContent = message;
+            document.getElementById('queryResultError').style.display = 'block';
+        }
+
+        // 重置查询表单
+        function resetQueryForm() {
+            document.getElementById('queryTableName').value = 'financial_indicator';
+            document.getElementById('queryPeriod').value = '';
+            document.getElementById('querySymbol').value = '';
+            document.getElementById('queryResultSection').style.display = 'none';
+            document.getElementById('queryResultError').style.display = 'none';
         }
     </script>
 </body>

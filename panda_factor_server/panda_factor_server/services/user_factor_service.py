@@ -627,6 +627,12 @@ def run_factor_analysis(factor_id: str,start_date:str,end_date:str,user_id:str,f
             start_date=start_date_formatted,
             end_date=end_date_formatted
         )
+        
+        # 判断df_factor是否为None
+        if df_factor is None:
+            logger.error(f"Factor generation failed. Please check if all required base factors exist and the formula is correct.")
+            return ResultData.fail(code="400", message="Factor generation failed. Please check if all required base factors exist and the formula is correct.")
+        
         print(df_factor.tail(5))
         logger.debug(f"Factor data len : {len(df_factor)}")
         # df_factor =df_factor

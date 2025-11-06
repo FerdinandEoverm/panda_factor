@@ -106,6 +106,13 @@ class FactorReader:
             }
             if index_component:
                 query['index_component'] = {"$eq": index_component}
+            
+            # 添加 symbols 过滤
+            if symbols is not None and len(symbols) > 0:
+                if isinstance(symbols, str):
+                    query['symbol'] = symbols
+                else:
+                    query['symbol'] = {"$in": symbols}
 
             # 构建投影，只查询需要的字段
             base_fields = ['date', 'symbol']  # 基础字段
@@ -159,6 +166,13 @@ class FactorReader:
             if index_component:
                 # TODO: 需要根据 index_component 筛选股票
                 pass
+            
+            # 添加 symbols 过滤
+            if symbols is not None and len(symbols) > 0:
+                if isinstance(symbols, str):
+                    query['symbol'] = symbols
+                else:
+                    query['symbol'] = {"$in": symbols}
             
             # 构建投影
             base_fields = ['symbol', 'ann_date', 'end_date']

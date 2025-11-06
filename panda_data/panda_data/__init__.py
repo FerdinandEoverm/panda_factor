@@ -37,9 +37,9 @@ def init(configPath: Optional[str] = None) -> None:
 
     try:
         # 延迟导入，避免在模块加载时就导入
-        from panda_data.panda_data.factor.factor_reader import FactorReader
-        from panda_data.panda_data.market_data.market_data_reader import MarketDataReader
-        from panda_data.panda_data.market_data.market_stock_cn_minute_reader import MarketStockCnMinReaderV3
+        from .factor.factor_reader import FactorReader
+        from .market_data.market_data_reader import MarketDataReader
+        from .market_data.market_stock_cn_minute_reader import MarketStockCnMinReaderV3
         
         # 使用panda_common中的配置
         _config = get_config()

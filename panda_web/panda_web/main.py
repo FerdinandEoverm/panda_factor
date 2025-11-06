@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, HTMLResponse
 
 # Import data hub routes
-from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean
+from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, index_market_data_clean
 from panda_data_hub.routes.config import config_redefine
 from panda_data_hub.routes.query import data_query
 
@@ -29,6 +29,7 @@ app.include_router(config_redefine.router, prefix="/datahub/api/v1", tags=["conf
 app.include_router(factor_data_clean.router, prefix="/datahub/api/v1", tags=["factor_data_clean"])
 app.include_router(stock_market_data_clean.router, prefix="/datahub/api/v1", tags=["stock_market_data_clean"])
 app.include_router(financial_data_clean.router, prefix="/datahub/api/v1", tags=["financial_data_clean"])
+app.include_router(index_market_data_clean.router, prefix="/datahub/api/v1", tags=["index_market_data_clean"])
 
 # Get the absolute path to the static directory
 DIST_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -54,6 +55,38 @@ async def data_statistics():
 async def system_config():
     """系统配置页面"""
     html_file = os.path.join(DIST_DIR, "system_config.html")
+    with open(html_file, 'r', encoding='utf-8') as f:
+        return HTMLResponse(content=f.read())
+
+# Stock market data cleaning page
+@app.get("/stock-market-clean")
+async def stock_market_clean():
+    """股票行情数据清洗页面"""
+    html_file = os.path.join(DIST_DIR, "stock_market_clean.html")
+    with open(html_file, 'r', encoding='utf-8') as f:
+        return HTMLResponse(content=f.read())
+
+# Factor data cleaning page
+@app.get("/factor-data-clean")
+async def factor_data_clean_page():
+    """因子数据清洗页面"""
+    html_file = os.path.join(DIST_DIR, "factor_data_clean.html")
+    with open(html_file, 'r', encoding='utf-8') as f:
+        return HTMLResponse(content=f.read())
+
+# Financial data cleaning page
+@app.get("/financial-data-clean")
+async def financial_data_clean_page():
+    """财务数据清洗页面"""
+    html_file = os.path.join(DIST_DIR, "financial_data_clean.html")
+    with open(html_file, 'r', encoding='utf-8') as f:
+        return HTMLResponse(content=f.read())
+
+# Index market data cleaning page
+@app.get("/index-market-clean")
+async def index_market_clean_page():
+    """指数行情数据清洗页面"""
+    html_file = os.path.join(DIST_DIR, "index_market_clean.html")
     with open(html_file, 'r', encoding='utf-8') as f:
         return HTMLResponse(content=f.read())
 
@@ -131,6 +164,7 @@ async def navigation_home():
                 display: block;
                 position: relative;
                 overflow: hidden;
+                color: #333;
             }
             
             .nav-item::before {
@@ -276,23 +310,43 @@ async def navigation_home():
                     </div>
                 </a>
                 
-                <a href="/factor/#/datahubdataclean" class="nav-item">
+                <a href="/stock-market-clean" class="nav-item">
                     <div class="nav-title">
-                        <span class="nav-icon">🧹</span>
-                        股票数据清洗
+                        <span class="nav-icon">📈</span>
+                        股票行情清洗
                     </div>
                     <div class="nav-desc">
-                        清洗股票行情数据、成交量数据和基础信息
+                        清洗股票日线行情数据（开高低收、成交量、成交额等）
                     </div>
                 </a>
                 
-                <a href="/factor/#/datahubFactorClean" class="nav-item">
+                <a href="/factor-data-clean" class="nav-item">
                     <div class="nav-title">
-                        <span class="nav-icon">🔧</span>
+                        <span class="nav-icon">📊</span>
                         因子数据清洗
                     </div>
                     <div class="nav-desc">
-                        清洗技术指标、财务数据和自定义因子数据
+                        清洗基础市场因子（市值、换手率、成交额等）
+                    </div>
+                </a>
+                
+                <a href="/financial-data-clean" class="nav-item">
+                    <div class="nav-title">
+                        <span class="nav-icon">💰</span>
+                        财务数据清洗
+                    </div>
+                    <div class="nav-desc">
+                        清洗财务指标、利润表、资产负债表、现金流量表
+                    </div>
+                </a>
+                
+                <a href="/index-market-clean" class="nav-item">
+                    <div class="nav-title">
+                        <span class="nav-icon">📊</span>
+                        指数行情清洗
+                    </div>
+                    <div class="nav-desc">
+                        清洗主要指数日线行情（上证、深证、沪深300、中证500等）
                     </div>
                 </a>
             </div>

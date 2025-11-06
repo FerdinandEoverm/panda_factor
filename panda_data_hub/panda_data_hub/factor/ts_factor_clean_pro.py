@@ -19,7 +19,14 @@ class TSFactorCleaner(ABC):
         self.config = config
         self.db_handler = DatabaseHandler(config)
         try:
-            ts.set_token(config['TS_TOKEN'])
+            # 检查 TS_TOKEN 是否存在
+            ts_token = config.get('TS_TOKEN')
+            if not ts_token:
+                raise ValueError(
+                    "TS_TOKEN 未配置。请在配置文件 panda_common/config.yaml 中设置 TS_TOKEN。\n"
+                    "您可以在 https://tushare.pro/ 注册并获取 Token。"
+                )
+            ts.set_token(ts_token)
             self.pro = ts.pro_api()
         except Exception as e:
             error_msg = f"Failed to initialize tushare: {str(e)}\nStack trace:\n{traceback.format_exc()}"
