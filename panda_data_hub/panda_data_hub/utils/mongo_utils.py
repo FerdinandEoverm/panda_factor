@@ -9,14 +9,18 @@ def ensure_collection_and_indexes(table_name):
         # 获取数据库对象
         db = DatabaseHandler(config).mongo_client[config["MONGO_DB"]]
         collection_name = table_name
-        
+
         # 特殊处理 stock_dividends 表
         if collection_name == 'stock_dividends':
             return ensure_collection_and_indexes_dividend(table_name)
-        
+
         # 特殊处理 index_market 表
         if collection_name == 'index_market':
             return ensure_collection_and_indexes_index_market(table_name)
+
+        # 特殊处理 adj_factor 表
+        if collection_name == 'adj_factor':
+            return ensure_collection_and_indexes_adj_factor(table_name)
         
         # 检查集合是否存在
         if collection_name not in db.list_collection_names():
@@ -237,19 +241,19 @@ def ensure_collection_and_indexes_index_market(table_name):
         # 获取数据库对象
         db = DatabaseHandler(config).mongo_client[config["MONGO_DB"]]
         collection_name = table_name
-        
+
         # 检查集合是否存在
         if collection_name not in db.list_collection_names():
             # 创建集合
             db.create_collection(collection_name)
             logger.info(f"成功创建指数行情数据集合 {collection_name}")
-        
+
         # 获取集合对象
         collection = db[collection_name]
-        
+
         # 获取现有的索引信息
         existing_indexes = collection.index_information()
-        
+
         # 删除旧的索引（如果存在）
         old_index_names = ['ts_code_date_idx', 'date_idx', 'ts_code_idx']
         for old_index_name in old_index_names:
@@ -259,18 +263,18 @@ def ensure_collection_and_indexes_index_market(table_name):
                     logger.info(f"成功删除旧索引 {old_index_name}")
                 except Exception as e:
                     logger.warning(f"删除旧索引 {old_index_name} 失败: {str(e)}")
-        
+
         # 重新获取索引信息
         existing_indexes = collection.index_information()
-        
+
         # 创建主要的复合索引：symbol + trade_date
         # 这个索引用于快速查询某个指数在特定日期的行情数据
-        index_name = 'symbol_trade_date_idx'
+        index_name = 'symbol_date_idx'
         if index_name not in existing_indexes:
             collection.create_index(
                 [
                     ('symbol', 1),
-                    ('trade_date', 1)
+                    ('date', 1)
                 ],
                 name=index_name,
                 unique=True,  # 设置为唯一索引，确保同一指数在同一日期只有一条记录
@@ -279,19 +283,19 @@ def ensure_collection_and_indexes_index_market(table_name):
             logger.info(f"成功创建指数行情数据索引 {index_name}")
         else:
             logger.info(f"指数行情数据索引 {index_name} 已存在")
-        
-        # 创建辅助索引：trade_date（用于按日期查询所有指数的行情）
-        date_index_name = 'trade_date_idx'
+
+        # 创建辅助索引：date（用于按日期查询所有指数的行情）
+        date_index_name = 'date_idx'
         if date_index_name not in existing_indexes:
             collection.create_index(
-                [('trade_date', 1)],
+                [('date', 1)],
                 name=date_index_name,
                 background=True
             )
             logger.info(f"成功创建指数行情数据索引 {date_index_name}")
         else:
             logger.info(f"指数行情数据索引 {date_index_name} 已存在")
-        
+
         # 创建辅助索引：symbol（用于查询某个指数的所有历史行情）
         symbol_index_name = 'symbol_idx'
         if symbol_index_name not in existing_indexes:
@@ -303,7 +307,75 @@ def ensure_collection_and_indexes_index_market(table_name):
             logger.info(f"成功创建指数行情数据索引 {symbol_index_name}")
         else:
             logger.info(f"指数行情数据索引 {symbol_index_name} 已存在")
-        
+
     except Exception as e:
         logger.error(f"创建指数行情数据集合或索引失败: {str(e)}")
+        raise
+
+
+def ensure_collection_and_indexes_adj_factor(table_name):
+    """
+    确保复权因子数据集合存在并创建所需的索引
+    复权因子数据表使用 (symbol, date) 作为复合唯一索引
+    """
+    try:
+        # 获取数据库对象
+        db = DatabaseHandler(config).mongo_client[config["MONGO_DB"]]
+        collection_name = table_name
+
+        # 检查集合是否存在
+        if collection_name not in db.list_collection_names():
+            # 创建集合
+            db.create_collection(collection_name)
+            logger.info(f"成功创建复权因子数据集合 {collection_name}")
+
+        # 获取集合对象
+        collection = db[collection_name]
+
+        # 获取现有的索引信息
+        existing_indexes = collection.index_information()
+
+        # 创建主要的复合索引：symbol + date
+        # 这个索引用于快速查询某个股票在特定日期的复权因子
+        index_name = 'symbol_date_idx'
+        if index_name not in existing_indexes:
+            collection.create_index(
+                [
+                    ('symbol', 1),
+                    ('date', 1)
+                ],
+                name=index_name,
+                unique=True,  # 设置为唯一索引，确保同一股票在同一日期只有一条复权因子记录
+                background=True
+            )
+            logger.info(f"成功创建复权因子数据索引 {index_name}")
+        else:
+            logger.info(f"复权因子数据索引 {index_name} 已存在")
+
+        # 创建辅助索引：date（用于按日期查询所有股票的复权因子）
+        date_index_name = 'date_idx'
+        if date_index_name not in existing_indexes:
+            collection.create_index(
+                [('date', 1)],
+                name=date_index_name,
+                background=True
+            )
+            logger.info(f"成功创建复权因子数据索引 {date_index_name}")
+        else:
+            logger.info(f"复权因子数据索引 {date_index_name} 已存在")
+
+        # 创建辅助索引：symbol（用于查询某个股票的所有历史复权因子）
+        symbol_index_name = 'symbol_idx'
+        if symbol_index_name not in existing_indexes:
+            collection.create_index(
+                [('symbol', 1)],
+                name=symbol_index_name,
+                background=True
+            )
+            logger.info(f"成功创建复权因子数据索引 {symbol_index_name}")
+        else:
+            logger.info(f"复权因子数据索引 {symbol_index_name} 已存在")
+
+    except Exception as e:
+        logger.error(f"创建复权因子数据集合或索引失败: {str(e)}")
         raise

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, dividend_data_clean
+from panda_data_hub.routes.data_clean import factor_data_clean, adj_factor_data_clean, stock_market_data_clean, financial_data_clean, dividend_data_clean
 from panda_data_hub.routes.config import config_redefine
 from panda_data_hub.routes.query import data_query
 
@@ -23,6 +23,7 @@ app.add_middleware(
 app.include_router(data_query.router, prefix="/datahub/api/v1", tags=["data_query"])
 app.include_router(config_redefine.router, prefix="/datahub/api/v1", tags=["config_redefine"])
 app.include_router(factor_data_clean.router, prefix="/datahub/api/v1", tags=["factor_data_clean"])
+app.include_router(adj_factor_data_clean.router, prefix="/datahub/api/v1", tags=["adj_factor_data_clean"])
 app.include_router(stock_market_data_clean.router, prefix="/datahub/api/v1", tags=["stock_market_data_clean"])
 app.include_router(financial_data_clean.router, prefix="/datahub/api/v1", tags=["financial_data_clean"])
 app.include_router(dividend_data_clean.router, prefix="/datahub/api/v1", tags=["dividend_data_clean"])

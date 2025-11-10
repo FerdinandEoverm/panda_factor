@@ -116,6 +116,11 @@
           <div class="panda-bar"><div id="pandaFactorFill" class="panda-fill" style="background:linear-gradient(90deg,#06b6d4,#60a5fa)"></div></div>
           <div class="panda-meta" id="pandaFactorMeta">等待中...</div>
         </div>
+        <div class="panda-row">
+          <div class="panda-title">复权因子数据</div>
+          <div class="panda-bar"><div id="pandaAdjFactorFill" class="panda-fill" style="background:linear-gradient(90deg,#a855f7,#c084fc)"></div></div>
+          <div class="panda-meta" id="pandaAdjFactorMeta">等待中...</div>
+        </div>
         <div class="panda-row" id="pandaError" style="display:none;color:#fca5a5;font-size:12px"></div>
       </div>
     </div>
@@ -124,13 +129,16 @@
       (function(){
         const stockUrl = '/datahub/api/v1/get_progress_stock_final';
         const factorUrl = '/datahub/api/v1/get_progress_factor_final';
+        const adjFactorUrl = '/datahub/api/v1/get_progress_adj_factor_final';
         const panel = document.getElementById('pandaProgress');
         const stockFill = document.getElementById('pandaStockFill');
         const factorFill = document.getElementById('pandaFactorFill');
+        const adjFactorFill = document.getElementById('pandaAdjFactorFill');
         const stockFineFill = document.getElementById('pandaStockFineFill');
         const stockFineMeta = document.getElementById('pandaStockFineMeta');
         const stockMeta = document.getElementById('pandaStockMeta');
         const factorMeta = document.getElementById('pandaFactorMeta');
+        const adjFactorMeta = document.getElementById('pandaAdjFactorMeta');
         const errorBox = document.getElementById('pandaError');
         const overall = document.getElementById('pandaOverallStatus');
 
@@ -158,12 +166,13 @@
         }
 
         async function tick(){
-          const [s,f] = await Promise.all([fetchJson(stockUrl), fetchJson(factorUrl)]);
-          const anyActive = ['running','error'].includes(s.status)||['running','error'].includes(f.status)|| (s.progress_percent||0)>0 || (f.progress_percent||0)>0;
+          const [s,f,af] = await Promise.all([fetchJson(stockUrl), fetchJson(factorUrl), fetchJson(adjFactorUrl)]);
+          const anyActive = ['running','error'].includes(s.status)||['running','error'].includes(f.status)||['running','error'].includes(af.status)|| (s.progress_percent||0)>0 || (f.progress_percent||0)>0 || (af.progress_percent||0)>0;
           panel.style.display = anyActive ? 'block' : 'none';
 
           stockFill.style.width = fmt(s.progress_percent);
           factorFill.style.width = fmt(f.progress_percent);
+          adjFactorFill.style.width = fmt(af.progress_percent);
           
           // 优化股票数据显示：如果completed但没有处理数据，显示提示
           let stockMetaText = metaFrom(s);
@@ -182,11 +191,18 @@
           }
           factorMeta.textContent = factorMetaText;
 
-          errorBox.style.display = s.status==='error' || f.status==='error' ? 'block':'none';
-          errorBox.textContent = s.status==='error' && s.error_message ? `股票: ${s.error_message}` : (f.status==='error' && f.error_message ? `因子: ${f.error_message}` : '');
+          // 优化复权因子数据显示
+          let adjFactorMetaText = metaFrom(af);
+          if (af.status === 'completed' && (af.progress_percent||0) >= 100) {
+            adjFactorMetaText = adjFactorMetaText || '复权因子数据清洗已完成';
+          }
+          adjFactorMeta.textContent = adjFactorMetaText;
+
+          errorBox.style.display = s.status==='error' || f.status==='error' || af.status==='error' ? 'block':'none';
+          errorBox.textContent = s.status==='error' && s.error_message ? `股票: ${s.error_message}` : (f.status==='error' && f.error_message ? `因子: ${f.error_message}` : (af.status==='error' && af.error_message ? `复权因子: ${af.error_message}` : ''));
 
           const finalStatus = (st)=> st==='error'?'error':(st==='running'?'running':(st==='completed'?'completed':null));
-          const os = finalStatus(s.status)||finalStatus(f.status);
+          const os = finalStatus(s.status)||finalStatus(f.status)||finalStatus(af.status);
           if(os){
             overall.style.display='inline-block';
             overall.className = 'panda-status '+os;

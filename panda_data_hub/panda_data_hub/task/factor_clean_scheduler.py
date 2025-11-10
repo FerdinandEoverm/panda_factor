@@ -4,6 +4,7 @@ import datetime
 from panda_common.config import config, logger
 from panda_common.handlers.database_handler import DatabaseHandler
 from panda_data_hub.factor.ts_factor_clean_pro import TSFactorCleaner
+from panda_data_hub.factor.ts_adj_factor_clean_pro import TSAdjFactorCleaner
 
 
 class FactorCleanerScheduler():
@@ -27,6 +28,16 @@ class FactorCleanerScheduler():
         except Exception as e:
             logger.error(f"Error _process_factor: {str(e)}")
 
+    def _process_adj_factor(self):
+        """处理复权因子数据清洗 - 使用 Tushare"""
+        logger.info("Processing adj factor data using Tushare")
+        try:
+            # 清洗复权因子数据
+            adj_factor_cleaner = TSAdjFactorCleaner(self.config)
+            adj_factor_cleaner.clean_daily_adj_factor()
+        except Exception as e:
+            logger.error(f"Error _process_adj_factor: {str(e)}")
+
     def schedule_data(self):
         time = self.config["FACTOR_UPDATE_TIME"]
         hour, minute = time.split(":")
@@ -45,8 +56,18 @@ class FactorCleanerScheduler():
             id=f"data_{datetime.datetime.now().strftime('%Y%m%d')}",
             replace_existing=True
         )
+
+        # 添加复权因子数据定时任务
+        self.scheduler.add_job(
+            self._process_adj_factor,
+            trigger=trigger,
+            id=f"adj_factor_data_{datetime.datetime.now().strftime('%Y%m%d')}",
+            replace_existing=True
+        )
+
         # self._process_factor()
-        logger.info(f"Scheduled Data")
+        # self._process_adj_factor()
+        logger.info(f"Scheduled Factor and Adj Factor Data")
 
     def stop(self):
         """停止调度器"""

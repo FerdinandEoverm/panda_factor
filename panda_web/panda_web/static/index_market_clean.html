@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>指数行情数据清洗 - 天蝎座量化投资系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .back-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #5568d3;
+        }
+
+        .info-banner {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-left: 4px solid #2196f3;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: start;
+        }
+
+        .info-banner .icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+
+        .info-banner .content {
+            flex: 1;
+        }
+
+        .info-banner h3 {
+            margin-bottom: 8px;
+            color: #1565c0;
+            font-size: 16px;
+        }
+
+        .info-banner p {
+            color: #1976d2;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 4px 0;
+        }
+
+        .indices-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .index-item {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #1976d2;
+            border: 1px solid #bbdefb;
+        }
+
+        .section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input[type="date"] {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 25px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .progress-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-badge {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-idle {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .status-running {
+            background: #e3f2fd;
+            color: #1976d2;
+            animation: pulse 2s infinite;
+        }
+
+        .status-completed {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .status-error {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .progress-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .error-message {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            color: #c62828;
+            line-height: 1.6;
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .date-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 指数行情数据清洗</h1>
+            <a href="/" class="back-btn">← 返回首页</a>
+        </div>
+
+        <!-- 说明信息 -->
+        <div class="info-banner">
+            <div class="icon">💡</div>
+            <div class="content">
+                <h3>指数行情数据清洗说明</h3>
+                <p><strong>数据内容：</strong>主要指数日线行情数据（开高低收、成交量、成交额、涨跌幅等）</p>
+                <p><strong>覆盖指数：</strong></p>
+                <div class="indices-list">
+                    <div class="index-item">📈 上证指数 (000001.SH)</div>
+                    <div class="index-item">📈 深证成指 (399001.SZ)</div>
+                    <div class="index-item">📈 沪深300 (000300.SH)</div>
+                    <div class="index-item">📈 中证500 (000905.SH)</div>
+                    <div class="index-item">📈 中证1000 (000852.SH)</div>
+                    <div class="index-item">📈 创业板指 (399006.SZ)</div>
+                    <div class="index-item">📈 科创50 (000688.SH)</div>
+                </div>
+                <p style="margin-top: 12px;"><strong>数据频率：</strong>每个交易日更新（自动随股票行情同步更新）</p>
+            </div>
+        </div>
+
+        <!-- 日期范围 -->
+        <div class="section">
+            <div class="section-title">
+                <span>📅</span>
+                <span>日期范围</span>
+            </div>
+            <div class="date-row">
+                <div class="form-group">
+                    <label>开始日期</label>
+                    <input type="date" id="startDate" value="2005-01-01">
+                    <div class="helper-text">选择需要清洗数据的起始日期（默认从2005年开始）</div>
+                </div>
+                <div class="form-group">
+                    <label>结束日期</label>
+                    <input type="date" id="endDate">
+                    <div class="helper-text">选择需要清洗数据的结束日期（默认为今天）</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据源信息 -->
+        <div class="section">
+            <div class="section-title">
+                <span>🔌</span>
+                <span>数据源</span>
+            </div>
+            <div class="info-banner" style="margin-bottom: 0;">
+                <div class="icon">ℹ️</div>
+                <div class="content">
+                    <p><strong>当前数据源：</strong>Tushare</p>
+                    <p style="margin-top: 5px; font-size: 12px;">提供7个主要A股指数的日线行情数据</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="section">
+            <div class="section-title">
+                <span>🚀</span>
+                <span>快捷操作</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="startClean()">
+                    <span>🔄</span>
+                    <span>补全历史数据</span>
+                </button>
+                <button class="btn btn-success" onclick="updateRecent()">
+                    <span>⚡</span>
+                    <span>更新最近30天</span>
+                </button>
+                <button class="btn btn-secondary" onclick="updateToday()">
+                    <span>📅</span>
+                    <span>更新今日数据</span>
+                </button>
+                <button class="btn btn-secondary" onclick="resetForm()">
+                    <span>🔄</span>
+                    <span>重置</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 进度显示 -->
+        <div class="progress-section" id="progressSection" style="display: none;">
+            <div class="progress-header">
+                <div class="progress-title">📈 清洗进度</div>
+                <div class="status-badge" id="statusBadge">待开始</div>
+            </div>
+
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%;">0%</div>
+            </div>
+
+            <div class="progress-info">
+                <div class="info-item">
+                    <div class="info-label">📊 当前指数</div>
+                    <div class="info-value" id="currentIndex">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">📆 当前处理日期</div>
+                    <div class="info-value" id="currentDate">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">📈 指数进度</div>
+                    <div class="info-value" id="indicesProgress">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">💾 数据源</div>
+                    <div class="info-value" id="dataSource">Tushare</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">ℹ️ 详细信息</div>
+                    <div class="info-value" id="detailInfo">-</div>
+                </div>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+        </div>
+
+        <!-- 数据查询展示 -->
+        <div class="section">
+            <div class="section-title">
+                <span>📊</span>
+                <span>指数行情数据查询</span>
+            </div>
+            
+            <!-- 详细查询模式 -->
+            <div>
+                <h4 style="color: #666; font-size: 14px; margin-bottom: 15px;">🔍 详细数据查询（指定指数/日期范围）</h4>
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label>指数代码（可选）</label>
+                            <select id="queryIndexCode" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                                <option value="">全部指数</option>
+                                <option value="000001.SH">上证指数 (000001.SH)</option>
+                                <option value="399001.SZ">深证成指 (399001.SZ)</option>
+                                <option value="000300.SH">沪深300 (000300.SH)</option>
+                                <option value="000905.SH">中证500 (000905.SH)</option>
+                                <option value="000852.SH">中证1000 (000852.SH)</option>
+                                <option value="399006.SZ">创业板指 (399006.SZ)</option>
+                                <option value="000688.SH">科创50 (000688.SH)</option>
+                            </select>
+                            <div class="helper-text">留空查询所有指数</div>
+                        </div>
+                        <div class="form-group">
+                            <label>开始日期（可选）</label>
+                            <input type="date" id="queryStartDate" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                            <div class="helper-text">留空不限制开始日期</div>
+                        </div>
+                        <div class="form-group">
+                            <label>结束日期（可选）</label>
+                            <input type="date" id="queryEndDate" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                            <div class="helper-text">留空不限制结束日期</div>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="queryIndexMarketData(1)">
+                            <span>🔍</span>
+                            <span>开始查询</span>
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetQueryForm()">
+                            <span>🔄</span>
+                            <span>重置</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 查询结果 -->
+                <div id="queryResultSection" style="display: none;">
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>查询结果：</strong>
+                            <span id="queryResultInfo">-</span>
+                        </div>
+                        <div style="font-size: 16px;">
+                            共 <span id="queryResultCount" style="color: #2196f3; font-size: 18px; font-weight: 600;">0</span> 条
+                        </div>
+                    </div>
+
+                    <div style="overflow-x: auto; background: white; border-radius: 8px; padding: 15px;">
+                        <table id="queryResultTable" style="width: 100%; border-collapse: collapse; background: white; font-size: 13px;">
+                            <thead id="queryTableHeader" style="background: #f8f9fa; position: sticky; top: 0;">
+                            </thead>
+                            <tbody id="queryTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="queryPagination" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
+                    </div>
+                </div>
+
+                <div id="queryResultLoading" style="display: none; text-align: center; padding: 40px; color: #666;">
+                    正在查询数据...
+                </div>
+
+                <div id="queryResultError" style="display: none; background: #ffebee; border-left: 4px solid #f44336; padding: 15px; border-radius: 8px; color: #c62828;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let progressInterval = null;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认结束日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('endDate').value = today;
+        });
+
+        // 开始清洗（历史数据）
+        async function startClean() {
+            const startDate = document.getElementById('startDate').value.replace(/-/g, '');
+            const endDate = document.getElementById('endDate').value.replace(/-/g, '');
+            
+            if (!startDate || !endDate) {
+                alert('请选择日期范围');
+                return;
+            }
+
+            if (confirm(`确认补全 ${startDate} 到 ${endDate} 的指数行情数据？\n数据源：Tushare\n将更新7个主要指数`)) {
+                showProgress();
+                
+                try {
+                    const params = new URLSearchParams({
+                        start_date: startDate,
+                        end_date: endDate,
+                        task_type: 'history'
+                    });
+
+                    const response = await fetch(`/datahub/api/v1/upsert_index_market?${params}`);
+                    const result = await response.json();
+                    
+                    if (result.message) {
+                        startProgressPolling();
+                    } else {
+                        showError('启动清洗任务失败');
+                    }
+                } catch (error) {
+                    showError('启动清洗任务失败: ' + error.message);
+                }
+            }
+        }
+
+        // 更新最近30天
+        async function updateRecent() {
+            if (!confirm('确认更新最近30天的指数行情数据？')) {
+                return;
+            }
+
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+
+            const startDate = thirtyDaysAgo.toISOString().split('T')[0].replace(/-/g, '');
+            const endDate = today.toISOString().split('T')[0].replace(/-/g, '');
+
+            showProgress();
+            
+            try {
+                const params = new URLSearchParams({
+                    start_date: startDate,
+                    end_date: endDate,
+                    task_type: 'history'
+                });
+
+                const response = await fetch(`/datahub/api/v1/upsert_index_market?${params}`);
+                const result = await response.json();
+                
+                if (result.message) {
+                    startProgressPolling();
+                } else {
+                    showError('启动更新任务失败');
+                }
+            } catch (error) {
+                showError('启动更新任务失败: ' + error.message);
+            }
+        }
+
+        // 更新今日数据
+        async function updateToday() {
+            if (!confirm('确认更新今日的指数行情数据？')) {
+                return;
+            }
+
+            showProgress();
+            
+            try {
+                const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+                const params = new URLSearchParams({
+                    start_date: today,
+                    end_date: today,
+                    task_type: 'daily'
+                });
+
+                const response = await fetch(`/datahub/api/v1/upsert_index_market?${params}`);
+                const result = await response.json();
+                
+                if (result.message) {
+                    startProgressPolling();
+                } else {
+                    showError('启动更新任务失败');
+                }
+            } catch (error) {
+                showError('启动更新任务失败: ' + error.message);
+            }
+        }
+
+        // 显示进度区域
+        function showProgress() {
+            document.getElementById('progressSection').style.display = 'block';
+            updateStatus('running', '正在启动...');
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressBar').textContent = '0%';
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        // 开始轮询进度
+        function startProgressPolling() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+
+            // 立即查询一次
+            updateProgress();
+
+            // 每2秒查询一次
+            progressInterval = setInterval(updateProgress, 2000);
+        }
+
+        // 停止轮询
+        function stopProgressPolling() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+        }
+
+        // 更新进度
+        async function updateProgress() {
+            try {
+                const response = await fetch('/datahub/api/v1/get_progress_index_market');
+                const progress = await response.json();
+                
+                // 更新进度条
+                const percent = progress.progress_percent || 0;
+                document.getElementById('progressBar').style.width = percent + '%';
+                document.getElementById('progressBar').textContent = Math.round(percent) + '%';
+                
+                // 更新状态
+                updateStatus(progress.status || 'idle', getStatusText(progress.status));
+                
+                // 更新当前指数
+                document.getElementById('currentIndex').textContent = progress.current_index || '-';
+                
+                // 更新当前处理日期
+                document.getElementById('currentDate').textContent = progress.current_date || '-';
+                
+                // 更新指数进度
+                const indicesProgress = progress.indices_processed || 0;
+                const indicesTotal = progress.indices_total || 7;
+                document.getElementById('indicesProgress').textContent = `${indicesProgress} / ${indicesTotal}`;
+                
+                // 更新详细信息
+                document.getElementById('detailInfo').textContent = 
+                    progress.last_message || progress.current_task || '-';
+                
+                // 显示错误信息
+                if (progress.error_message) {
+                    showError(progress.error_message);
+                }
+                
+                // 如果完成或出错，停止轮询
+                if (progress.status === 'completed' || progress.status === 'error') {
+                    stopProgressPolling();
+                }
+                
+            } catch (error) {
+                console.error('查询进度失败:', error);
+            }
+        }
+
+        // 更新状态徽章
+        function updateStatus(status, text) {
+            const badge = document.getElementById('statusBadge');
+            badge.className = 'status-badge status-' + status;
+            badge.textContent = text;
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            const statusMap = {
+                'idle': '待开始',
+                'running': '清洗中...',
+                'completed': '已完成',
+                'error': '出错'
+            };
+            return statusMap[status] || '未知';
+        }
+
+        // 显示错误
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.innerHTML = `<strong>⚠️ 错误</strong><div style="margin-top: 10px;">${message}</div>`;
+            errorDiv.style.display = 'block';
+            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // 重置表单
+        function resetForm() {
+            document.getElementById('startDate').value = '2005-01-01';
+            document.getElementById('endDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('progressSection').style.display = 'none';
+            stopProgressPolling();
+        }
+
+        // ========== 数据查询功能 ==========
+        
+        let currentQueryPage = 1;
+        let currentQueryParams = {};
+
+        // 查询指数行情数据
+        async function queryIndexMarketData(page = 1) {
+            const indexCode = document.getElementById('queryIndexCode').value;
+            const startDate = document.getElementById('queryStartDate').value.replace(/-/g, '');
+            const endDate = document.getElementById('queryEndDate').value.replace(/-/g, '');
+
+            // 保存查询参数
+            currentQueryParams = { indexCode, startDate, endDate };
+            currentQueryPage = page;
+
+            // 显示加载状态
+            document.getElementById('queryResultSection').style.display = 'none';
+            document.getElementById('queryResultError').style.display = 'none';
+            document.getElementById('queryResultLoading').style.display = 'block';
+
+            try {
+                // 构建查询参数
+                const params = new URLSearchParams();
+                params.append('page', page);
+                params.append('page_size', 20);
+                
+                if (indexCode) {
+                    params.append('index_code', indexCode);
+                }
+                if (startDate) {
+                    params.append('start_date', startDate);
+                }
+                if (endDate) {
+                    params.append('end_date', endDate);
+                }
+
+                const response = await fetch(`/datahub/api/v1/query_index_market_data?${params}`);
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '查询失败');
+                }
+
+                displayQueryResult(result);
+
+            } catch (error) {
+                console.error('查询指数行情数据失败:', error);
+                showQueryError(`查询失败: ${error.message || '未知错误'}`);
+            } finally {
+                document.getElementById('queryResultLoading').style.display = 'none';
+            }
+        }
+
+        // 显示查询结果
+        function displayQueryResult(result) {
+            const { data, pagination, query } = result;
+
+            if (!data || data.length === 0) {
+                document.getElementById('queryTableBody').innerHTML = '<tr><td colspan="100" style="text-align: center; padding: 40px; color: #999;">暂无数据</td></tr>';
+                document.getElementById('queryResultSection').style.display = 'block';
+                return;
+            }
+
+            // 更新查询信息
+            let infoText = '';
+            if (query.index_code) {
+                infoText += `指数: ${query.index_code}`;
+            } else {
+                infoText += '全部指数';
+            }
+            if (query.start_date || query.end_date) {
+                const start = query.start_date ? formatDateDisplay(query.start_date) : '不限';
+                const end = query.end_date ? formatDateDisplay(query.end_date) : '不限';
+                infoText += ` | 日期范围: ${start} ~ ${end}`;
+            }
+            document.getElementById('queryResultInfo').textContent = infoText;
+            document.getElementById('queryResultCount').textContent = pagination.total.toLocaleString();
+
+            // 构建表头
+            const firstRow = data[0];
+            const columns = Object.keys(firstRow);
+            
+            let headerHTML = '<tr>';
+            columns.forEach(col => {
+                headerHTML += `<th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd; white-space: nowrap;">${col}</th>`;
+            });
+            headerHTML += '</tr>';
+
+            // 构建表体
+            let bodyHTML = '';
+            data.forEach((row, index) => {
+                bodyHTML += `<tr style="${index % 2 === 0 ? 'background: #fafafa;' : ''}">`;
+                columns.forEach(col => {
+                    let value = row[col];
+                    
+                    // 格式化特殊字段
+                    if (col === 'date' && value) {
+                        value = formatDateDisplay(value);
+                    } else if (['open', 'high', 'low', 'close', 'pre_close'].includes(col) && value !== null) {
+                        value = Number(value).toFixed(2);
+                    } else if (col === 'volume' && value !== null) {
+                        value = Number(value).toLocaleString();
+                    } else if (value === null || value === undefined) {
+                        value = '-';
+                    }
+                    
+                    bodyHTML += `<td style="padding: 10px 12px; border-bottom: 1px solid #eee; white-space: nowrap;">${value}</td>`;
+                });
+                bodyHTML += '</tr>';
+            });
+
+            document.getElementById('queryTableHeader').innerHTML = headerHTML;
+            document.getElementById('queryTableBody').innerHTML = bodyHTML;
+
+            // 显示分页
+            displayQueryPagination(pagination);
+
+            // 显示结果区域
+            document.getElementById('queryResultSection').style.display = 'block';
+        }
+
+        // 显示查询分页
+        function displayQueryPagination(pagination) {
+            const { page, total_pages, total } = pagination;
+
+            const paginationHTML = `
+                <button onclick="queryIndexMarketData(1)" ${page === 1 ? 'disabled' : ''} 
+                    style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">
+                    首页
+                </button>
+                <button onclick="queryIndexMarketData(${page - 1})" ${page === 1 ? 'disabled' : ''}
+                    style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">
+                    上一页
+                </button>
+                <span style="color: #666; font-size: 14px;">
+                    第 ${page} / ${total_pages} 页，共 ${total} 条
+                </span>
+                <button onclick="queryIndexMarketData(${page + 1})" ${page >= total_pages ? 'disabled' : ''}
+                    style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">
+                    下一页
+                </button>
+                <button onclick="queryIndexMarketData(${total_pages})" ${page >= total_pages ? 'disabled' : ''}
+                    style="padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">
+                    末页
+                </button>
+            `;
+
+            document.getElementById('queryPagination').innerHTML = paginationHTML;
+        }
+
+        // 显示查询错误
+        function showQueryError(message) {
+            document.getElementById('queryResultLoading').style.display = 'none';
+            document.getElementById('queryResultSection').style.display = 'none';
+            document.getElementById('queryResultError').textContent = message;
+            document.getElementById('queryResultError').style.display = 'block';
+        }
+
+        // 重置查询表单
+        function resetQueryForm() {
+            document.getElementById('queryIndexCode').value = '';
+            document.getElementById('queryStartDate').value = '';
+            document.getElementById('queryEndDate').value = '';
+            document.getElementById('queryResultSection').style.display = 'none';
+            document.getElementById('queryResultError').style.display = 'none';
+        }
+
+        // 格式化日期显示（YYYYMMDD -> YYYY-MM-DD）
+        function formatDateDisplay(dateStr) {
+            if (!dateStr || dateStr.length !== 8) return dateStr;
+            return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+        }
+    </script>
+</body>
+</html>
+

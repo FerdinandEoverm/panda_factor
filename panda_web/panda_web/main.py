@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, HTMLResponse
 
 # Import data hub routes
-from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, index_market_data_clean
+from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, index_market_data_clean, adj_factor_data_clean
 from panda_data_hub.routes.config import config_redefine
 from panda_data_hub.routes.query import data_query
 
@@ -30,6 +30,7 @@ app.include_router(factor_data_clean.router, prefix="/datahub/api/v1", tags=["fa
 app.include_router(stock_market_data_clean.router, prefix="/datahub/api/v1", tags=["stock_market_data_clean"])
 app.include_router(financial_data_clean.router, prefix="/datahub/api/v1", tags=["financial_data_clean"])
 app.include_router(index_market_data_clean.router, prefix="/datahub/api/v1", tags=["index_market_data_clean"])
+app.include_router(adj_factor_data_clean.router, prefix="/datahub/api/v1", tags=["adj_factor_data_clean"])
 
 # Get the absolute path to the static directory
 DIST_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -90,6 +91,14 @@ async def index_market_clean_page():
     with open(html_file, 'r', encoding='utf-8') as f:
         return HTMLResponse(content=f.read())
 
+# Adj Factor data cleaning page
+@app.get("/adj-factor-clean")
+async def adj_factor_clean_page():
+    """复权因子数据清洗页面"""
+    html_file = os.path.join(DIST_DIR, "adj_factor_data_clean.html")
+    with open(html_file, 'r', encoding='utf-8') as f:
+        return HTMLResponse(content=f.read())
+
 # Create a beautiful navigation homepage
 @app.get("/")
 async def navigation_home():
@@ -99,7 +108,7 @@ async def navigation_home():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>天蝎座量化投资系统 - 导航中心</title>
+        <title>天蝎座量化投资系统 - 导航中心111</title>
         <style>
             * {
                 margin: 0;
@@ -276,7 +285,7 @@ async def navigation_home():
         <div class="container">
             <div class="header">
                 <div class="logo">♏ 天蝎座</div>
-                <div class="subtitle">量化投资系统 · 数据管理中心</div>
+                <div class="subtitle">量化投资系统 · 数据管理中心3333</div>
             </div>
             
             <div class="nav-grid">
@@ -340,13 +349,23 @@ async def navigation_home():
                     </div>
                 </a>
                 
-                <a href="/index-market-clean" class="nav-item">
+                # <a href="/index-market-clean" class="nav-item">
+                #     <div class="nav-title">
+                #         <span class="nav-icon">📊</span>
+                #         指数行情清洗
+                #     </div>
+                #     <div class="nav-desc">
+                #         清洗主要指数日线行情（上证、深证、沪深300、中证500等）
+                #     </div>
+                # </a>
+                
+                <a href="/adj-factor-clean" class="nav-item">
                     <div class="nav-title">
-                        <span class="nav-icon">📊</span>
-                        指数行情清洗
+                        <span class="nav-icon">📈</span>
+                        复权因子数据清洗
                     </div>
                     <div class="nav-desc">
-                        清洗主要指数日线行情（上证、深证、沪深300、中证500等）
+                        清洗股票复权因子数据（adj_factor）
                     </div>
                 </a>
             </div>
