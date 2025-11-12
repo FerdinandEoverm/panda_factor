@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>估值因子数据清洗 - 天蝎座量化投资系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .back-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #5568d3;
+        }
+
+        .info-banner {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-left: 4px solid #2196f3;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: start;
+        }
+
+        .info-banner .icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+
+        .info-banner .content {
+            flex: 1;
+        }
+
+        .info-banner h3 {
+            margin-bottom: 8px;
+            color: #1565c0;
+            font-size: 16px;
+        }
+
+        .info-banner p {
+            color: #1976d2;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 4px 0;
+        }
+
+        .section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input[type="date"] {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 25px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .progress-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-badge {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-idle {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .status-running {
+            background: #e3f2fd;
+            color: #1976d2;
+            animation: pulse 2s infinite;
+        }
+
+        .status-completed {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .status-error {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .progress-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .error-message {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            color: #c62828;
+            line-height: 1.6;
+        }
+
+        .error-message strong {
+            color: #d32f2f;
+            font-size: 16px;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .error-message .error-detail {
+            background: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 10px;
+            color: #666;
+            font-size: 13px;
+            white-space: pre-line;
+        }
+
+        .error-message .error-help {
+            margin-top: 12px;
+            padding: 12px;
+            background: #fff3cd;
+            border-left: 3px solid #ffc107;
+            border-radius: 4px;
+            color: #856404;
+            font-size: 13px;
+        }
+
+        .error-message .error-help a {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .date-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Adjusted to allow 3 columns */
+            gap: 20px;
+        }
+
+        .query-results-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 25px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .results-table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .results-table th, .results-table td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .results-table tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .results-table tbody tr:hover {
+            background: #e3f2fd;
+        }
+
+        .results-table td:nth-child(3), .results-table td:nth-child(4),
+        .results-table td:nth-child(5), .results-table td:nth-child(6) {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .results-table td[data-null="true"] {
+            color: #999;
+            font-style: italic;
+        }
+
+        .factor-info {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .factor-info h4 {
+            margin-bottom: 10px;
+            color: #856404;
+            font-size: 16px;
+        }
+
+        .factor-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .factor-item {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ffeaa7;
+            font-size: 13px;
+            font-weight: 500;
+            color: #d68910;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 估值因子数据清洗</h1>
+            <a href="/" class="back-btn">← 返回首页</a>
+        </div>
+
+        <!-- 说明信息 -->
+        <div class="info-banner">
+            <div class="icon">💡</div>
+            <div class="content">
+                <h3>估值因子数据清洗说明</h3>
+                <p><strong>数据内容：</strong>股票估值相关指标（PE-TTM、市销率、市现率、流通市值等）</p>
+                <p><strong>数据频率：</strong>每个交易日更新，与基础行情数据同步</p>
+            </div>
+        </div>
+
+        <!-- 因子说明 -->
+        <div class="factor-info">
+            <h4>📈 清洗的估值因子字段</h4>
+            <div class="factor-list">
+                <div class="factor-item">pe_ttm - 滚动市盈率</div>
+                <div class="factor-item">ps_ttm - 滚动市销率</div>
+                <div class="factor-item">dv_ttm - 滚动股息率</div>
+                <div class="factor-item">circ_mv - 流通市值</div>
+            </div>
+        </div>
+
+        <!-- 日期范围 -->
+        <div class="section">
+            <div class="section-title">
+                <span>📅</span>
+                <span>日期范围</span>
+            </div>
+            <div class="date-row">
+                <div class="form-group">
+                    <label>开始日期</label>
+                    <input type="date" id="startDate" value="2024-01-01">
+                    <div class="helper-text">选择需要清洗数据的起始日期</div>
+                </div>
+                <div class="form-group">
+                    <label>结束日期</label>
+                    <input type="date" id="endDate">
+                    <div class="helper-text">选择需要清洗数据的结束日期</div>
+                </div>
+                <div class="form-group">
+                    <label>股票代码</label>
+                    <input type="text" id="stockSymbol" placeholder="可选，如000001.SZ">
+                    <div class="helper-text">指定查询的股票代码（可选）</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据源信息 -->
+        <div class="section">
+            <div class="section-title">
+                <span>🔌</span>
+                <span>数据源</span>
+            </div>
+            <div class="info-banner" style="margin-bottom: 0;">
+                <div class="icon">ℹ️</div>
+                <div class="content">
+                    <p><strong>当前数据源：</strong>Tushare</p>
+                    <p style="margin-top: 5px; font-size: 12px;">通过 daily_basic API 获取估值因子数据</p>
+                    <p id="tokenStatusHint" style="margin-top: 8px; font-size: 12px; color: #666;">
+                        💡 提示：开始清洗前会自动验证 Token 有效性
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="section">
+            <div class="section-title">
+                <span>🚀</span>
+                <span>快捷操作</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="startClean()">
+                    <span>🔄</span>
+                    <span>开始清洗</span>
+                </button>
+                <button class="btn btn-success" onclick="updateRecent()">
+                    <span>⚡</span>
+                    <span>更新最近7天</span>
+                </button>
+                <button class="btn btn-info" onclick="queryResults()">
+                    <span>📊</span>
+                    <span>查询因子结果</span>
+                </button>
+                <button class="btn btn-secondary" onclick="resetForm()">
+                    <span>🔄</span>
+                    <span>重置</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 进度显示 -->
+        <div class="progress-section" id="progressSection" style="display: none;">
+            <div class="progress-header">
+                <div class="progress-title">📈 估值因子清洗进度</div>
+                <div class="status-badge" id="statusBadge">待开始</div>
+            </div>
+
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%;">0%</div>
+            </div>
+
+            <div class="progress-info">
+                <div class="info-item">
+                    <div class="info-label">📅 交易日进度（主进度）</div>
+                    <div class="info-value" id="tradingDays">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">📆 当前处理日期</div>
+                    <div class="info-value" id="currentDate">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">📊 估值因子获取状态</div>
+                    <div class="info-value" id="factorStatus">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">💾 数据写入状态</div>
+                    <div class="info-value" id="writeStatus">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">🔄 处理阶段</div>
+                    <div class="info-value" id="currentPhase">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">ℹ️ 详细信息</div>
+                    <div class="info-value" id="detailInfo">-</div>
+                </div>
+            </div>
+
+            <div id="errorMessage" class="error-message" style="display: none;"></div>
+        </div>
+
+        <!-- 查询结果显示 -->
+        <div class="query-results-section" id="queryResultsSection" style="display: none;">
+            <div class="progress-header">
+                <div class="progress-title">📊 估值因子查询结果</div>
+                <div class="status-badge status-completed">查询完成</div>
+            </div>
+
+            <!-- 查询条件显示 -->
+            <div class="progress-info">
+                <div class="info-item">
+                    <div class="info-label">📅 日期范围</div>
+                    <div class="info-value" id="queryDateRange">未设置</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">🏷️ 股票代码</div>
+                    <div class="info-value" id="querySymbol">全部</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">📊 总记录数</div>
+                    <div class="info-value" id="totalRecords">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">📄 当前页</div>
+                    <div class="info-value" id="currentPage">1</div>
+                </div>
+            </div>
+
+            <!-- 分页控件 -->
+            <div class="pagination-controls" id="paginationControls" style="display: none; text-align: center; margin: 20px 0;">
+                <button class="btn btn-secondary" onclick="prevPage()" id="prevBtn" disabled>上一页</button>
+                <span style="margin: 0 20px;">
+                    第 <span id="pageNum">1</span> 页 / 共 <span id="totalPages">1</span> 页
+                    (每页 <span id="pageSize">20</span> 条)
+                </span>
+                <button class="btn btn-secondary" onclick="nextPage()" id="nextBtn" disabled>下一页</button>
+            </div>
+
+            <!-- 数据表格 -->
+            <div class="results-table-container">
+                <table class="results-table" id="resultsTable" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="padding: 12px; border: 1px solid #ddd; text-align: left; font-weight: 600;">日期</th>
+                            <th style="padding: 12px; border: 1px solid #ddd; text-align: left; font-weight: 600;">股票代码</th>
+                            <th style="padding: 12px; border: 1px solid #ddd; text-align: right; font-weight: 600;">滚动市盈率(PE-TTM)</th>
+                            <th style="padding: 12px; border: 1px solid #ddd; text-align: right; font-weight: 600;">滚动市销率(PS-TTM)</th>
+                            <th style="padding: 12px; border: 1px solid #ddd; text-align: right; font-weight: 600;">滚动股息率(DV-TTM)</th>
+                            <th style="padding: 12px; border: 1px solid #ddd; text-align: right; font-weight: 600;">流通市值(亿)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                        <tr>
+                            <td colspan="6" style="padding: 40px; text-align: center; color: #666; font-style: italic;">
+                                点击"查询因子结果"按钮开始查询
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 查询错误信息 -->
+            <div id="queryErrorMessage" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let progressInterval = null;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认结束日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('endDate').value = today;
+        });
+
+        // 开始清洗
+        async function startClean() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (!startDate || !endDate) {
+                alert('请选择日期范围');
+                return;
+            }
+
+            if (confirm(`确认清洗 ${startDate} 到 ${endDate} 的估值因子数据？\n数据源：Tushare`)) {
+                showProgress();
+
+                try {
+                    const params = new URLSearchParams({
+                        start_date: startDate,
+                        end_date: endDate
+                    });
+
+                    const response = await fetch(`/datahub/api/v1/upsert_valuation_factor?${params}`);
+                    const result = await response.json();
+
+                    if (result.message) {
+                        startProgressPolling();
+                    } else {
+                        showError('启动估值因子清洗任务失败');
+                    }
+                } catch (error) {
+                    showError('启动估值因子清洗任务失败: ' + error.message);
+                }
+            }
+        }
+
+        // 更新最近7天
+        async function updateRecent() {
+            if (!confirm('确认更新最近7天的估值因子数据？')) {
+                return;
+            }
+
+            const today = new Date();
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 7);
+
+            const startDate = sevenDaysAgo.toISOString().split('T')[0];
+            const endDate = today.toISOString().split('T')[0];
+
+            showProgress();
+
+            try {
+                const params = new URLSearchParams({
+                    start_date: startDate,
+                    end_date: endDate
+                });
+
+                const response = await fetch(`/datahub/api/v1/upsert_valuation_factor?${params}`);
+                const result = await response.json();
+
+                if (result.message) {
+                    startProgressPolling();
+                } else {
+                    showError('启动估值因子更新任务失败');
+                }
+            } catch (error) {
+                showError('启动估值因子更新任务失败: ' + error.message);
+            }
+        }
+
+        // 显示进度区域
+        function showProgress() {
+            document.getElementById('progressSection').style.display = 'block';
+            updateStatus('running', '正在启动...');
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressBar').textContent = '0%';
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        // 开始轮询进度
+        function startProgressPolling() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+
+            // 立即查询一次
+            updateProgress();
+
+            // 每2秒查询一次
+            progressInterval = setInterval(updateProgress, 2000);
+        }
+
+        // 停止轮询
+        function stopProgressPolling() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+        }
+
+        // 更新进度
+        async function updateProgress() {
+            try {
+                const response = await fetch('/datahub/api/v1/get_progress_valuation_factor');
+                const progress = await response.json();
+
+                // 更新进度条
+                const percent = progress.progress_percent || 0;
+                document.getElementById('progressBar').style.width = percent + '%';
+                document.getElementById('progressBar').textContent = Math.round(percent) + '%';
+
+                // 更新状态
+                updateStatus(progress.status || 'idle', getStatusText(progress.status));
+
+                // 更新交易日进度
+                const tradingDaysText = `${progress.progress_percent ? Math.round(progress.progress_percent) : 0}% 完成`;
+                document.getElementById('tradingDays').textContent = tradingDaysText;
+
+                // 更新当前处理日期
+                document.getElementById('currentDate').textContent = progress.current_task ?
+                    progress.current_task.match(/\d{8}/)?.[0]?.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3') || '-' : '-';
+
+                // 更新估值因子获取状态
+                document.getElementById('factorStatus').textContent =
+                    progress.current_task && progress.current_task.includes('正在获取估值因子数据') ? '🔄 获取中...' :
+                    progress.status === 'completed' ? '✅ 已完成' :
+                    progress.status === 'running' ? '🔄 处理中' : '-';
+
+                // 更新数据写入状态
+                document.getElementById('writeStatus').textContent =
+                    progress.current_task && progress.current_task.includes('Successfully upserted') ? '✅ 已写入' :
+                    progress.status === 'completed' ? '✅ 已完成' :
+                    progress.status === 'running' ? '🔄 写入中' : '-';
+
+                // 更新处理阶段
+                const phaseText = progress.current_task || '-';
+                document.getElementById('currentPhase').textContent = phaseText;
+
+                // 更新详细信息
+                document.getElementById('detailInfo').textContent = progress.current_task || '-';
+
+                // 显示错误信息
+                if (progress.error_message) {
+                    showError(progress.error_message);
+
+                    // 如果是 Token 错误，更新提示信息
+                    const isTokenError = progress.error_message.includes('Token') ||
+                                       progress.error_message.includes('token');
+                    if (isTokenError) {
+                        const tokenHint = document.getElementById('tokenStatusHint');
+                        if (tokenHint) {
+                            tokenHint.innerHTML = '❌ Token 验证失败，请检查配置';
+                            tokenHint.style.color = '#d32f2f';
+                            tokenHint.style.fontWeight = '600';
+                        }
+                    }
+                }
+
+                // 如果完成或出错，停止轮询
+                if (progress.status === 'completed' || progress.status === 'error') {
+                    stopProgressPolling();
+                }
+
+                // 如果是 Token 验证阶段，更新提示
+                if (progress.current_task && progress.current_task.includes('Token')) {
+                    const tokenHint = document.getElementById('tokenStatusHint');
+                    if (tokenHint && progress.status === 'running') {
+                        tokenHint.innerHTML = '🔄 正在验证 Token...';
+                        tokenHint.style.color = '#1976d2';
+                    }
+                }
+            } catch (error) {
+                console.error('查询进度失败:', error);
+            }
+        }
+
+        // 更新状态徽章
+        function updateStatus(status, text) {
+            const badge = document.getElementById('statusBadge');
+            badge.className = 'status-badge status-' + status;
+            badge.textContent = text;
+        }
+
+        // 获取状态文本
+        function getStatusText(status) {
+            const statusMap = {
+                'idle': '待开始',
+                'running': '清洗中...',
+                'completed': '已完成',
+                'error': '出错'
+            };
+            return statusMap[status] || '未知';
+        }
+
+        // 显示错误
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+
+            // 检测是否是 Token 相关错误
+            const isTokenError = message.includes('Token') ||
+                                message.includes('token') ||
+                                message.includes('认证') ||
+                                message.includes('权限');
+
+            if (isTokenError) {
+                // 为 Token 错误提供更详细的帮助信息
+                const parts = message.split('\n\n');
+                const mainError = parts[0] || message;
+                const detail = parts.slice(1).join('\n\n');
+
+                errorDiv.innerHTML = `
+                    <strong>🚫 Tushare Token 配置错误</strong>
+                    <div class="error-detail">${mainError.replace(/❌/g, '').trim()}</div>
+                    ${detail ? `<div class="error-detail">${detail}</div>` : ''}
+                    <div class="error-help">
+                        💡 <strong>解决方法：</strong><br>
+                        1. 登录 <a href="https://tushare.pro/" target="_blank">Tushare 官网</a><br>
+                        2. 在"个人中心"复制您的 Token<br>
+                        3. 更新配置文件中的 TS_TOKEN 字段<br>
+                        4. 重启服务后重试
+                    </div>
+                `;
+            } else {
+                // 普通错误
+                errorDiv.innerHTML = `<strong>⚠️ 估值因子清洗错误</strong><div class="error-detail">${message}</div>`;
+            }
+
+            errorDiv.style.display = 'block';
+
+            // 滚动到错误信息处
+            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // 查询因子结果
+        let currentQueryPage = 1;
+        let currentQuerySymbol = '';
+        let currentQueryStartDate = '';
+        let currentQueryEndDate = '';
+
+        async function queryResults() {
+            const startDate = document.getElementById('startDate').value.replace(/-/g, '');
+            const endDate = document.getElementById('endDate').value.replace(/-/g, '');
+            const stockSymbol = document.getElementById('stockSymbol').value.trim(); // 获取股票代码
+
+            // 保存查询参数
+            currentQueryStartDate = startDate;
+            currentQueryEndDate = endDate;
+            currentQueryPage = 1;
+            currentQuerySymbol = stockSymbol; // 保存股票代码
+
+            await performQuery();
+        }
+
+        async function performQuery() {
+            try {
+                // 显示查询结果区域
+                document.getElementById('queryResultsSection').style.display = 'block';
+                document.getElementById('queryErrorMessage').style.display = 'none';
+
+                // 更新查询条件显示
+                const dateRange = currentQueryStartDate && currentQueryEndDate ?
+                    `${currentQueryStartDate} - ${currentQueryEndDate}` :
+                    '全部';
+                document.getElementById('queryDateRange').textContent = dateRange;
+                document.getElementById('querySymbol').textContent = currentQuerySymbol || '全部';
+
+                // 构建查询URL
+                const params = new URLSearchParams({
+                    page: currentQueryPage,
+                    page_size: 20
+                });
+
+                if (currentQuerySymbol) params.append('symbol', currentQuerySymbol);
+                if (currentQueryStartDate) params.append('start_date', currentQueryStartDate);
+                if (currentQueryEndDate) params.append('end_date', currentQueryEndDate);
+
+                const response = await fetch(`/datahub/api/v1/query_valuation_factor_data?${params}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    // 更新分页信息
+                    document.getElementById('totalRecords').textContent = result.pagination.total;
+                    document.getElementById('currentPage').textContent = result.pagination.page;
+                    document.getElementById('pageNum').textContent = result.pagination.page;
+                    document.getElementById('totalPages').textContent = result.pagination.total_pages;
+                    document.getElementById('pageSize').textContent = result.pagination.page_size;
+
+                    // 更新分页控件
+                    const paginationControls = document.getElementById('paginationControls');
+                    if (result.pagination.total_pages > 1) {
+                        paginationControls.style.display = 'block';
+                        document.getElementById('prevBtn').disabled = result.pagination.page <= 1;
+                        document.getElementById('nextBtn').disabled = result.pagination.page >= result.pagination.total_pages;
+                    } else {
+                        paginationControls.style.display = 'none';
+                    }
+
+                    // 显示数据
+                    displayQueryResults(result.data);
+                } else {
+                    showQueryError(result.error || '查询失败');
+                }
+            } catch (error) {
+                showQueryError('查询失败: ' + error.message);
+            }
+        }
+
+        function displayQueryResults(data) {
+            const tbody = document.getElementById('resultsTableBody');
+
+            if (data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" style="padding: 40px; text-align: center; color: #666; font-style: italic;">
+                            未找到符合条件的估值因子数据
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let html = '';
+            data.forEach(row => {
+                html += `
+                    <tr>
+                        <td>${row.date}</td>
+                        <td>${row.symbol}</td>
+                        <td ${row.pe_ttm === null ? 'data-null="true"' : ''}>${formatNumber(row.pe_ttm)}</td>
+                        <td ${row.ps_ttm === null ? 'data-null="true"' : ''}>${formatNumber(row.ps_ttm)}</td>
+                        <td ${row.dv_ttm === null ? 'data-null="true"' : ''}>${formatNumber(row.dv_ttm)}</td>
+                        <td ${row.circ_mv === null ? 'data-null="true"' : ''}>${formatMarketValue(row.circ_mv)}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function formatNumber(value) {
+            if (value === null || value === undefined) return 'N/A';
+            return Number(value).toFixed(2);
+        }
+
+        function formatPercent(value) {
+            if (value === null || value === undefined) return 'N/A';
+            return (Number(value) * 100).toFixed(2) + '%';
+        }
+
+        function formatMarketValue(value) {
+            if (value === null || value === undefined) return 'N/A';
+            // 转换为亿元并保留2位小数
+            return (Number(value) / 10000).toFixed(2);
+        }
+
+        function prevPage() {
+            if (currentQueryPage > 1) {
+                currentQueryPage--;
+                performQuery();
+            }
+        }
+
+        function nextPage() {
+            currentQueryPage++;
+            performQuery();
+        }
+
+        function showQueryError(message) {
+            const errorDiv = document.getElementById('queryErrorMessage');
+            errorDiv.innerHTML = `<strong>⚠️ 查询错误</strong><div class="error-detail">${message}</div>`;
+            errorDiv.style.display = 'block';
+            document.getElementById('paginationControls').style.display = 'none';
+            document.getElementById('resultsTableBody').innerHTML = `
+                <tr>
+                    <td colspan="6" style="padding: 40px; text-align: center; color: #c62828;">
+                        查询失败，请检查网络连接或稍后重试
+                    </td>
+                </tr>
+            `;
+        }
+
+        // 重置表单
+        function resetForm() {
+            document.getElementById('startDate').value = '2024-01-01';
+            document.getElementById('endDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('stockSymbol').value = ''; // 重置股票代码输入框
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('queryResultsSection').style.display = 'none';
+            stopProgressPolling();
+        }
+    </script>
+</body>
+</html>
