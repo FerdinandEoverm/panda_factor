@@ -99,6 +99,14 @@ async def adj_factor_clean_page():
     with open(html_file, 'r', encoding='utf-8') as f:
         return HTMLResponse(content=f.read())
 
+# Valuation Factor data cleaning page
+@app.get("/valuation-factor-clean")
+async def valuation_factor_clean_page():
+    """估值因子数据清洗页面"""
+    html_file = os.path.join(DIST_DIR, "valuation_factor_clean.html")
+    with open(html_file, 'r', encoding='utf-8') as f:
+        return HTMLResponse(content=f.read())
+
 # Create a beautiful navigation homepage
 @app.get("/")
 async def navigation_home():
@@ -366,6 +374,16 @@ async def navigation_home():
                     </div>
                     <div class="nav-desc">
                         清洗股票复权因子数据（adj_factor）
+                    </div>
+                </a>
+
+                <a href="/valuation-factor-clean" class="nav-item">
+                    <div class="nav-title">
+                        <span class="nav-icon">📊</span>
+                        估值因子数据清洗
+                    </div>
+                    <div class="nav-desc">
+                        清洗估值因子数据（PE-TTM、市销率、市现率、流通市值）
                     </div>
                 </a>
             </div>

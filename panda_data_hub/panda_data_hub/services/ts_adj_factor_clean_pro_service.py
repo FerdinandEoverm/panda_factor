@@ -10,13 +10,13 @@ from tqdm import tqdm
 import time
 from panda_common.handlers.database_handler import DatabaseHandler
 from panda_common.logger_config import logger
-from panda_data_hub.utils.mongo_utils import  ensure_collection_and_indexes
+from panda_data_hub.utils.mongo_utils import ensure_collection_and_indexes
 from panda_data_hub.utils.ts_utils import get_tushare_suffix
 
 
-class FactorCleanerTSProService(ABC):
+class AdjFactorCleanerTSProService(ABC):
 
-    def __init__(self,config):
+    def __init__(self, config):
         self.config = config
         self.db_handler = DatabaseHandler(config)
         self.progress_callback = None
@@ -39,7 +39,7 @@ class FactorCleanerTSProService(ABC):
         self.progress_callback = callback
 
     def clean_history_data(self, start_date, end_date):
-        """补全历史数据"""
+        """补全历史复权因子数据"""
         date_range = pd.date_range(start=start_date, end=end_date, freq='D')
         trading_days = []
         for date in date_range:
@@ -47,7 +47,7 @@ class FactorCleanerTSProService(ABC):
             trading_days.append(date_str)
         total_days = len(trading_days)
         processed_days = 0
-        with tqdm(total=len(trading_days), desc="Processing Trading Days") as pbar:
+        with tqdm(total=len(trading_days), desc="Processing Adj Factor Trading Days") as pbar:
             # 分批处理，每批10天
             batch_size = 10
             for i in range(0, len(trading_days), batch_size):
@@ -81,10 +81,10 @@ class FactorCleanerTSProService(ABC):
                     logger.info(
                         f"完成批次 {i // batch_size + 1}/{(len(trading_days) - 1) // batch_size + 1}，等待10秒后继续...")
                     time.sleep(10)
-        logger.info("因子数据清洗全部完成！！！")
+        logger.info("复权因子数据清洗全部完成！！！")
 
     def clean_daily_data(self, date_str, pbar):
-        """补全当日数据(历史循环补充)"""
+        """补全当日复权因子数据(历史循环补充)"""
         try:
             date = date_str.replace('-', '')
             query = {"date": date}
@@ -94,25 +94,15 @@ class FactorCleanerTSProService(ABC):
                 return
 
             data = pd.DataFrame(list(records))
-            data = data[['date', 'symbol', 'open','high','low','close','volume']]
+            data = data[['date', 'symbol']]
             data['ts_code'] = data['symbol'].apply(get_tushare_suffix)
 
-            logger.info("正在获取市值和换手率数据......")
-            factor_data = self.pro.query('daily_basic', trade_date=date,fields=['ts_code','turnover_rate','total_mv'])
-            temp_data = data.merge(factor_data[['ts_code','turnover_rate','total_mv']], on='ts_code', how='left')
-            temp_data = temp_data.rename(columns={'total_mv': 'market_cap'})
-            temp_data = temp_data.rename(columns={'turnover_rate': 'turnover'})
-            logger.info("正在获取成交额数据......")
-            price_data = self.pro.query("daily", trade_date=date, fields=['ts_code', 'amount'])
-            result_data = temp_data.merge(price_data[['ts_code', 'amount']], on='ts_code', how='left')
+            logger.info("正在获取复权因子数据......")
+            adj_factor_data = self.pro.query("adj_factor", trade_date=date, fields=['ts_code', 'adj_factor'])
+            result_data = data.merge(adj_factor_data[['ts_code', 'adj_factor']], on='ts_code', how='left')
             result_data = result_data.drop(columns=['ts_code'])
-            # tushare的成交额是以千元为单位的
-            result_data['amount'] = result_data['amount']*1000
-            result_data['market_cap'] = result_data['market_cap'] * 10000
-            desired_order = ['date', 'symbol', 'open', 'high', 'low', 'close', 'volume', 'market_cap', 'turnover','amount']
-            result_data = result_data[desired_order]
 
-            ensure_collection_and_indexes(table_name='factor_base')
+            ensure_collection_and_indexes(table_name='adj_factor')
             upsert_operations = []
             for record in result_data.to_dict('records'):
                 upsert_operations.append(UpdateOne(
@@ -121,12 +111,12 @@ class FactorCleanerTSProService(ABC):
                     upsert=True
                 ))
             if upsert_operations:
-                self.db_handler.mongo_client[self.config["MONGO_DB"]]['factor_base'].bulk_write(
+                self.db_handler.mongo_client[self.config["MONGO_DB"]]['adj_factor'].bulk_write(
                     upsert_operations)
-                logger.info(f"Successfully upserted factor data for date: {date}")
+                logger.info(f"Successfully upserted adj_factor data for date: {date}")
 
 
         except Exception as e:
-            error_msg = f"Failed to process market data for quarter : {str(e)}\nStack trace:\n{traceback.format_exc()}"
+            error_msg = f"Failed to process adj_factor data for date {date}: {str(e)}\nStack trace:\n{traceback.format_exc()}"
             logger.error(error_msg)
             raise

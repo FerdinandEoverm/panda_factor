@@ -38,6 +38,7 @@ async def count_collection(collection: str):
     allowed_collections = [
         'stock_market',
         'factor_base',
+        'valuation_factor',
         'financial_indicator',
         'financial_income',
         'financial_balance',
@@ -481,6 +482,195 @@ async def query_index_market_data(
             'pagination': {}
         }
 
+@router.get('/adj_factor_stats_by_year')
+async def adj_factor_stats_by_year():
+    """按年度统计复权因子数据（最近5年）"""
+    from panda_common.handlers.database_handler import DatabaseHandler
+    from datetime import datetime
+    
+    try:
+        db_handler = DatabaseHandler(config)
+        
+        # 生成最近5年的年份
+        current_year = datetime.now().year
+        years = [str(year) for year in range(current_year, current_year - 5, -1)]
+        
+        # 查询复权因子数据集合
+        mongo_collection = db_handler.get_mongo_collection(
+            config["MONGO_DB"],
+            'adj_factor'
+        )
+        
+        # 按年度统计
+        year_stats = []
+        total_count = 0
+        
+        for year in years:
+            # 统计该年度的复权因子记录（按日期的年份）
+            count = mongo_collection.count_documents({
+                "date": {"$regex": f"^{year}"}
+            })
+            year_stats.append({
+                'year': year,
+                'count': count
+            })
+            total_count += count
+        
+        # 统计总记录数
+        all_count = mongo_collection.count_documents({})
+        
+        return {
+            'success': True,
+            'data': {
+                'years': year_stats,
+                'total': total_count,
+                'all_count': all_count
+            }
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'data': {}
+        }
+
+@router.get('/query_stock_market_data')
+async def query_stock_market_data(
+    year: str = Query(None, description="年份（可选，如2024）"),
+    symbol: str = Query(None, description="股票代码（可选，如000001.SZ）"),
+    page: int = Query(default=1, ge=1, description="页码"),
+    page_size: int = Query(default=20, ge=1, le=100, description="每页数量")
+):
+    """查询股票行情数据"""
+    from panda_common.handlers.database_handler import DatabaseHandler
+    import math
+    
+    try:
+        db_handler = DatabaseHandler(config)
+        mongo_collection = db_handler.get_mongo_collection(
+            config["MONGO_DB"],
+            'stock_market'
+        )
+        
+        # 构建查询条件
+        query_filter = {}
+        
+        # 如果指定了年份，按交易日期的年份查询
+        if year:
+            query_filter["trade_date"] = {"$regex": f"^{year}"}
+        
+        # 如果指定了股票代码
+        if symbol:
+            query_filter["symbol"] = symbol
+        
+        # 查询总数
+        total_count = mongo_collection.count_documents(query_filter)
+        
+        # 计算总页数
+        total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
+        
+        # 分页查询，按交易日期倒序排列
+        skip = (page - 1) * page_size
+        cursor = mongo_collection.find(query_filter).sort("trade_date", -1).skip(skip).limit(page_size)
+        
+        # 转换结果并处理NaN值
+        data = []
+        for doc in cursor:
+            # 移除MongoDB的_id字段
+            if '_id' in doc:
+                del doc['_id']
+            
+            # 处理NaN和Inf值，将它们转换为None
+            cleaned_doc = {}
+            for key, value in doc.items():
+                if isinstance(value, float):
+                    # 检查是否是NaN或Inf
+                    if math.isnan(value) or math.isinf(value):
+                        cleaned_doc[key] = None
+                    else:
+                        cleaned_doc[key] = value
+                else:
+                    cleaned_doc[key] = value
+            
+            data.append(cleaned_doc)
+        
+        return {
+            'success': True,
+            'data': data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total': total_count,
+                'total_pages': total_pages
+            },
+            'query': {
+                'year': year,
+                'symbol': symbol
+            }
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'data': [],
+            'pagination': {}
+        }
+
+@router.get('/stock_market_stats_by_year')
+async def stock_market_stats_by_year():
+    """按年度统计股票行情数据（最近5年）"""
+    from panda_common.handlers.database_handler import DatabaseHandler
+    from datetime import datetime
+    
+    try:
+        db_handler = DatabaseHandler(config)
+        
+        # 生成最近5年的年份
+        current_year = datetime.now().year
+        years = [str(year) for year in range(current_year, current_year - 5, -1)]
+        
+        # 查询股票行情数据集合
+        mongo_collection = db_handler.get_mongo_collection(
+            config["MONGO_DB"],
+            'stock_market'
+        )
+        
+        # 按年度统计
+        year_stats = []
+        total_count = 0
+        
+        for year in years:
+            # 统计该年度的股票行情记录（按交易日期的年份）
+            count = mongo_collection.count_documents({
+                "trade_date": {"$regex": f"^{year}"}
+            })
+            year_stats.append({
+                'year': year,
+                'count': count
+            })
+            total_count += count
+        
+        # 统计总记录数
+        all_count = mongo_collection.count_documents({})
+        
+        return {
+            'success': True,
+            'data': {
+                'years': year_stats,
+                'total': total_count,
+                'all_count': all_count
+            }
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'data': {}
+        }
+
 @router.get('/query_adj_factor_data')
 async def query_adj_factor_data(
     symbol: str = Query(None, description="股票代码（可选，如000001.SZ）"),
@@ -572,6 +762,93 @@ async def query_adj_factor_data(
             'pagination': {}
         }
 
+@router.get('/query_valuation_factor_data')
+async def query_valuation_factor_data(
+    symbol: str = Query(None, description="股票代码（可选，如000001.SZ）"),
+    start_date: str = Query(None, description="开始日期（可选，YYYYMMDD格式）"),
+    end_date: str = Query(None, description="结束日期（可选，YYYYMMDD格式）"),
+    page: int = Query(default=1, ge=1, description="页码"),
+    page_size: int = Query(default=20, ge=1, le=100, description="每页数量")
+):
+    """查询估值因子数据"""
+    from panda_common.handlers.database_handler import DatabaseHandler
+    import math
 
+    try:
+        db_handler = DatabaseHandler(config)
+        mongo_collection = db_handler.get_mongo_collection(
+            config["MONGO_DB"],
+            'factor_base'
+        )
 
+        # 构建查询条件
+        query_filter = {}
 
+        # 如果指定了股票代码
+        if symbol:
+            query_filter["symbol"] = symbol
+
+        # 如果指定了日期范围
+        if start_date or end_date:
+            date_filter = {}
+            if start_date:
+                date_filter["$gte"] = start_date
+            if end_date:
+                date_filter["$lte"] = end_date
+            if date_filter:
+                query_filter["date"] = date_filter
+
+        # 查询总数
+        total_count = mongo_collection.count_documents(query_filter)
+
+        # 计算总页数
+        total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
+
+        # 分页查询，按日期倒序排列
+        skip = (page - 1) * page_size
+        cursor = mongo_collection.find(query_filter).sort("date", -1).skip(skip).limit(page_size)
+
+        # 转换结果并处理NaN值
+        data = []
+        for doc in cursor:
+            # 移除MongoDB的_id字段
+            if '_id' in doc:
+                del doc['_id']
+
+            # 处理NaN和Inf值，将它们转换为None
+            cleaned_doc = {}
+            for key, value in doc.items():
+                if isinstance(value, float):
+                    # 检查是否是NaN或Inf
+                    if math.isnan(value) or math.isinf(value):
+                        cleaned_doc[key] = None
+                    else:
+                        cleaned_doc[key] = value
+                else:
+                    cleaned_doc[key] = value
+
+            data.append(cleaned_doc)
+
+        return {
+            'success': True,
+            'data': data,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total': total_count,
+                'total_pages': total_pages
+            },
+            'query': {
+                'symbol': symbol,
+                'start_date': start_date,
+                'end_date': end_date
+            }
+        }
+
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'data': [],
+            'pagination': {}
+        }

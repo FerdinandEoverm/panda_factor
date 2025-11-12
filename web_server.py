@@ -11,7 +11,7 @@ from fastapi.responses import Response, HTMLResponse
 import base64
 
 # Import data hub routes
-from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, dividend_data_clean, index_market_data_clean, adj_factor_data_clean
+from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, dividend_data_clean, index_market_data_clean, adj_factor_data_clean, valuation_factor_data_clean
 from panda_data_hub.routes.config import config_redefine
 from panda_data_hub.routes.query import data_query
 
@@ -46,6 +46,7 @@ app.include_router(financial_data_clean.router, prefix="/datahub/api/v1", tags=[
 app.include_router(dividend_data_clean.router, prefix="/datahub/api/v1", tags=["分红数据清洗"])
 app.include_router(index_market_data_clean.router, prefix="/datahub/api/v1", tags=["指数行情数据清洗"])
 app.include_router(adj_factor_data_clean.router, prefix="/datahub/api/v1", tags=["复权因子数据清洗"])
+app.include_router(valuation_factor_data_clean.router, prefix="/datahub/api/v1", tags=["估值因子数据清洗"])
 
 # AI对话API
 app.include_router(chat_router.router, prefix="/llm", tags=["AI对话"])
@@ -76,6 +77,17 @@ async def adj_factor_clean_page():
             return HTMLResponse(content=f.read())
     else:
         return HTMLResponse(content="<h1>复权因子数据清洗页面未找到</h1><p>请确保 adj_factor_data_clean.html 文件存在</p>", status_code=404)
+
+# Valuation Factor data cleaning page
+@app.get("/valuation-factor-clean")
+async def valuation_factor_clean_page():
+    """估值因子数据清洗页面"""
+    html_file = frontend_dir / "valuation_factor_clean.html"
+    if html_file.exists():
+        with open(html_file, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(content="<h1>估值因子数据清洗页面未找到</h1><p>请确保 valuation_factor_clean.html 文件存在</p>", status_code=404)
 
 # 针对缺失资源提供兜底占位图，避免控制台 404 噪音
 # 1x1 透明 PNG（base64）
@@ -439,6 +451,15 @@ async def navigation_home():
                     </div>
                     <div class="nav-desc">
                         清洗股票复权因子数据（adj_factor）
+                    </div>
+                </a>
+
+                <a href="/valuation-factor-clean" class="nav-item">
+                    <div class="nav-title">
+                        估值因子数据清洗
+                    </div>
+                    <div class="nav-desc">
+                        清洗估值因子数据（PE-TTM、市销率、市现率、流通市值）
                     </div>
                 </a>
             </div>
