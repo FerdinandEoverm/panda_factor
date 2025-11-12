@@ -435,24 +435,24 @@ class MacroFactor:
             # Remove all built-in functions and attribute names
             variables = variables - self.ALLOWED_BUILTINS - set(self.ALLOWED_ATTRIBUTES.keys())
 
-            factor_names = set()
-            for var in variables:
-                # Check uppercase
-                if var.upper() in self.FACTOR_MAP:
-                    factor_names.add(self.FACTOR_MAP[var.upper()])
-                # Check lowercase
-                elif var.lower() in self.FACTOR_MAP:
-                    factor_names.add(self.FACTOR_MAP[var.lower()])
-                # Check original case
-                elif var in self.FACTOR_MAP:
-                    factor_names.add(self.FACTOR_MAP[var])
+            # factor_names = set()
+            # for var in variables:
+            #     # Check uppercase
+            #     if var.upper() in self.FACTOR_MAP:
+            #         factor_names.add(self.FACTOR_MAP[var.upper()])
+            #     # Check lowercase
+            #     elif var.lower() in self.FACTOR_MAP:
+            #         factor_names.add(self.FACTOR_MAP[var.lower()])
+            #     # Check original case
+            #     elif var in self.FACTOR_MAP:
+            #         factor_names.add(self.FACTOR_MAP[var])
 
-            if not factor_names:
-                print(f"No valid factors found in formula. Variables found: {variables}")
-            else:
-                print(f"Required factors found: {factor_names}")
-
-            return factor_names
+            # if not factor_names:
+            #     print(f"No valid factors found in formula. Variables found: {variables}")
+            # else:
+            #     print(f"Required factors found: {factor_names}")
+            #
+            return variables
 
         except Exception as e:
             print(f"Error extracting factor names: {e}")

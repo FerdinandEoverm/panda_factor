@@ -11,6 +11,7 @@ _config = None
 _factor = None
 _market_data = None
 _market_min_data = None
+_financial_data_reader = None # 新增
 
 # 明确导出的公共接口
 __all__ = [
@@ -22,7 +23,13 @@ __all__ = [
     'get_stock_instruments',
     'get_market_min_data',
     'get_market_data',
-    'get_available_market_fields'
+    'get_available_market_fields',
+    'get_financial_data',
+    'get_latest_financial_data',
+    'get_financial_data_by_quarter',
+    'get_financial_time_series',
+    'get_financial_cross_section',
+    'get_financial_all_symbols',
 ]
 
 
@@ -33,13 +40,14 @@ def init(configPath: Optional[str] = None) -> None:
     Args:
         config_path: Path to the config file. If None, will use default config from panda_common.config
     """
-    global _config, _factor, _market_data, _market_min_data
+    global _config, _factor, _market_data, _market_min_data,_financial_data_reader
 
     try:
         # 延迟导入，避免在模块加载时就导入
         from .factor.factor_reader import FactorReader
         from .market_data.market_data_reader import MarketDataReader
         from .market_data.market_stock_cn_minute_reader import MarketStockCnMinReaderV3
+        from .financial.financial_data_reader import FinancialDataReader # 新增
         
         # 使用panda_common中的配置
         _config = get_config()
@@ -50,6 +58,7 @@ def init(configPath: Optional[str] = None) -> None:
         _factor = FactorReader(_config)
         _market_data = MarketDataReader(_config)
         _market_min_data = MarketStockCnMinReaderV3(_config)
+        _financial_data_reader = FinancialDataReader(_config) # 新增
     except Exception as e:
         raise RuntimeError(f"Failed to initialize panda_data: {str(e)}")
 
@@ -201,4 +210,76 @@ def get_available_market_fields() -> List[str]:
 
     return _market_data.get_available_fields()
 
-# Add more public functions as needed
+
+def get_financial_data(
+    symbols: Optional[Union[str, List[str]]] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    fields: Optional[Union[str, List[str]]] = None,
+    data_type: str = 'indicator',
+    date_type: str = 'ann_date'
+) -> Optional[pd.DataFrame]:
+    if _financial_data_reader is None:
+        raise RuntimeError("Please call init() before using any financial functions")
+    return _financial_data_reader.get_financial_data(
+        symbols=symbols, start_date=start_date, end_date=end_date,
+        fields=fields, data_type=data_type, date_type=date_type
+    )
+
+def get_latest_financial_data(
+    symbols: Optional[Union[str, List[str]]] = None,
+    fields: Optional[Union[str, List[str]]] = None,
+    data_type: str = 'indicator',
+    as_of_date: Optional[str] = None
+) -> Optional[pd.DataFrame]:
+    if _financial_data_reader is None:
+        raise RuntimeError("Please call init() before using any financial functions")
+    return _financial_data_reader.get_latest_financial_data(
+        symbols=symbols, fields=fields, data_type=data_type, as_of_date=as_of_date
+    )
+
+def get_financial_data_by_quarter(
+    symbols: Optional[Union[str, List[str]]] = None,
+    quarters: Optional[Union[str, List[str]]] = None,
+    fields: Optional[Union[str, List[str]]] = None,
+    data_type: str = 'indicator'
+) -> Optional[pd.DataFrame]:
+    if _financial_data_reader is None:
+        raise RuntimeError("Please call init() before using any financial functions")
+    return _financial_data_reader.get_financial_data_by_quarter(
+        symbols=symbols, quarters=quarters, fields=fields, data_type=data_type
+    )
+
+def get_financial_time_series(
+    symbol: str,
+    fields: Optional[Union[str, List[str]]],
+    data_type: str = 'indicator',
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    date_type: str = 'ann_date'
+) -> Optional[pd.DataFrame]:
+    if _financial_data_reader is None:
+        raise RuntimeError("Please call init() before using any financial functions")
+    return _financial_data_reader.get_financial_time_series(
+        symbol=symbol, fields=fields, data_type=data_type,
+        start_date=start_date, end_date=end_date, date_type=date_type
+    )
+
+def get_financial_cross_section(
+    date: str,
+    fields: Optional[Union[str, List[str]]],
+    data_type: str = 'indicator',
+    date_type: str = 'ann_date',
+    symbols: Optional[Union[str, List[str]]] = None
+) -> Optional[pd.DataFrame]:
+    if _financial_data_reader is None:
+        raise RuntimeError("Please call init() before using any financial functions")
+    return _financial_data_reader.get_financial_cross_section(
+        date=date, fields=fields, data_type=data_type,
+        date_type=date_type, symbols=symbols
+    )
+
+def get_financial_all_symbols() -> List[str]:
+    if _financial_data_reader is None:
+        raise RuntimeError("Please call init() before using any financial functions")
+    return _financial_data_reader.get_all_symbols()

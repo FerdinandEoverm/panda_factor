@@ -93,10 +93,22 @@ class FactorReader:
         
         # 财务字段列表（来自财务报表：利润表、资产负债表、现金流量表、财务指标）
         # 使用集中配置管理
-        financial_factors = [f.lower() for f in ALL_FINANCIAL_FIELDS]
+        all_financial_fields_lower = [f.lower() for f in ALL_FINANCIAL_FIELDS]
+        financial_indicator_factors = all_financial_fields_lower
+        income_factors = all_financial_fields_lower
+        balance_sheet_factors = all_financial_fields_lower
+        cash_flow_factors = all_financial_fields_lower
         
         requested_base_factors = [f for f in factors if f in base_factors]
-        requested_financial_factors = [f for f in factors if f in financial_factors]
+        requested_financial_indicator_factors = [f for f in factors if f in financial_indicator_factors]
+        requested_income_factors = [f for f in factors if f in income_factors]
+        requested_balance_sheet_factors = [f for f in factors if f in balance_sheet_factors]
+        requested_cash_flow_factors = [f for f in factors if f in cash_flow_factors]
+
+        requested_all_financial_factors = list(set(requested_financial_indicator_factors +
+                                                   requested_income_factors +
+                                                   requested_balance_sheet_factors +
+                                                   requested_cash_flow_factors))
 
         # 如果有基础因子，查一次库，再选择留什么字段
         if requested_base_factors:
@@ -149,23 +161,43 @@ class FactorReader:
                 all_data.append(df)
         
         # 如果有财务指标因子，从 financial_indicator 表查询
-        if requested_financial_factors:
-            logger.info(f"Fetching financial indicators: {requested_financial_factors}")
-            
+        if requested_financial_indicator_factors:
+            logger.info(f"Fetching financial indicators: {requested_financial_indicator_factors}")
+
             # 扩展日期范围以获取足够的历史财务数据
             # 财务数据是季度数据，需要向前扩展至少 1.5 年以获取 5 个季度的数据
             extended_start = pd.to_datetime(start_date, format='%Y%m%d') - pd.DateOffset(months=18)
             extended_start_str = extended_start.strftime('%Y%m%d')
-            
+
             # 构建查询条件
             query = {}
-            
+
             # 添加公告日期过滤（扩展的日期范围）
             query["ann_date"] = {"$gte": extended_start_str, "$lte": end_date}
             
             if index_component:
-                # TODO: 需要根据 index_component 筛选股票
-                pass
+                component_query = {}
+                if index_component == "000300":
+                    component_query["index_component"] = "100"
+                elif index_component == "000905":
+                    component_query["index_component"] = "010"
+                elif index_component == "000852":
+                    component_query["index_component"] = "001"
+                
+                collection_stock_market = self.db_handler.get_mongo_collection(
+                    self.config["MONGO_DB"],
+                    "stock_market"
+                )
+                component_symbols = collection_stock_market.distinct("symbol", component_query)
+                
+                if component_symbols:
+                    if symbols is None or len(symbols) == 0:
+                        symbols = component_symbols
+                    else:
+                        symbols = list(set(symbols) & set(component_symbols))
+                else:
+                    logger.warning(f"No symbols found for index component: {index_component}")
+                    return None
             
             # 添加 symbols 过滤
             if symbols is not None and len(symbols) > 0:
@@ -173,12 +205,12 @@ class FactorReader:
                     query['symbol'] = symbols
                 else:
                     query['symbol'] = {"$in": symbols}
-            
+
             # 构建投影
             base_fields = ['symbol', 'ann_date', 'end_date']
-            projection = {field: 1 for field in base_fields + requested_financial_factors}
+            projection = {field: 1 for field in base_fields + requested_financial_indicator_factors}
             projection['_id'] = 0
-            
+
             # 查询财务指标数据
             collection = self.db_handler.get_mongo_collection(
                 self.config["MONGO_DB"],
@@ -186,7 +218,7 @@ class FactorReader:
             )
             cursor = collection.find(query, projection).batch_size(100000)
             records = list(cursor)
-            
+
             if records:
                 df_financial = pd.DataFrame(records)
                 df_financial.rename(columns={'ann_date': 'date'},inplace=True)
@@ -203,6 +235,195 @@ class FactorReader:
                 all_data.append(df_financial)
                 logger.info(f"Fetched {len(df_financial)} financial indicator records (sorted by end_date)")
 
+        # 如果有利润表因子，从 financial_income 表查询
+        if requested_income_factors:
+            logger.info(f"Fetching financial income factors: {requested_income_factors}")
+            
+            extended_start = pd.to_datetime(start_date, format='%Y%m%d') - pd.DateOffset(months=18)
+            extended_start_str = extended_start.strftime('%Y%m%d')
+            
+            query = {}
+            query["ann_date"] = {"$gte": extended_start_str, "$lte": end_date}
+            
+            if index_component:
+                component_query = {}
+                if index_component == "000300":
+                    component_query["index_component"] = "100"
+                elif index_component == "000905":
+                    component_query["index_component"] = "010"
+                elif index_component == "000852":
+                    component_query["index_component"] = "001"
+                
+                collection_stock_market = self.db_handler.get_mongo_collection(
+                    self.config["MONGO_DB"],
+                    "stock_market"
+                )
+                component_symbols = collection_stock_market.distinct("symbol", component_query)
+                
+                if component_symbols:
+                    if symbols is None or len(symbols) == 0:
+                        symbols = component_symbols
+                    else:
+                        symbols = list(set(symbols) & set(component_symbols))
+                else:
+                    logger.warning(f"No symbols found for index component: {index_component}")
+                    return None
+            
+            if symbols is not None and len(symbols) > 0:
+                if isinstance(symbols, str):
+                    query['symbol'] = symbols
+                else:
+                    query['symbol'] = {"$in": symbols}
+            
+            base_fields = ['symbol', 'ann_date', 'end_date']
+            projection = {field: 1 for field in base_fields + requested_income_factors}
+            projection['_id'] = 0
+            
+            collection = self.db_handler.get_mongo_collection(
+                self.config["MONGO_DB"],
+                "financial_income"
+            )
+            cursor = collection.find(query, projection).batch_size(100000)
+            records = list(cursor)
+            
+            if records:
+                df_income = pd.DataFrame(records)
+                df_income.rename(columns={'ann_date': 'date'},inplace=True)
+                df_income.sort_values(['symbol', 'end_date', 'date'],inplace=True)
+                df_income = df_income.drop_duplicates(
+                    subset=['symbol', 'date'], 
+                    keep='last'
+                )
+                df_income.drop(columns=['end_date'], errors='ignore',inplace=True)
+                all_data.append(df_income)
+                logger.info(f"Fetched {len(df_income)} financial income records (sorted by end_date)")
+
+        # 如果有资产负债表因子，从 financial_balance 表查询
+        if requested_balance_sheet_factors:
+            logger.info(f"Fetching financial balance sheet factors: {requested_balance_sheet_factors}")
+            
+            extended_start = pd.to_datetime(start_date, format='%Y%m%d') - pd.DateOffset(months=18)
+            extended_start_str = extended_start.strftime('%Y%m%d')
+            
+            query = {}
+            query["ann_date"] = {"$gte": extended_start_str, "$lte": end_date}
+            
+            if index_component:
+                component_query = {}
+                if index_component == "000300":
+                    component_query["index_component"] = "100"
+                elif index_component == "000905":
+                    component_query["index_component"] = "010"
+                elif index_component == "000852":
+                    component_query["index_component"] = "001"
+                
+                collection_stock_market = self.db_handler.get_mongo_collection(
+                    self.config["MONGO_DB"],
+                    "stock_market"
+                )
+                component_symbols = collection_stock_market.distinct("symbol", component_query)
+                
+                if component_symbols:
+                    if symbols is None or len(symbols) == 0:
+                        symbols = component_symbols
+                    else:
+                        symbols = list(set(symbols) & set(component_symbols))
+                else:
+                    logger.warning(f"No symbols found for index component: {index_component}")
+                    return None
+            
+            if symbols is not None and len(symbols) > 0:
+                if isinstance(symbols, str):
+                    query['symbol'] = symbols
+                else:
+                    query['symbol'] = {"$in": symbols}
+            
+            base_fields = ['symbol', 'ann_date', 'end_date']
+            projection = {field: 1 for field in base_fields + requested_balance_sheet_factors}
+            projection['_id'] = 0
+            
+            collection = self.db_handler.get_mongo_collection(
+                self.config["MONGO_DB"],
+                "financial_balance"
+            )
+            cursor = collection.find(query, projection).batch_size(100000)
+            records = list(cursor)
+            
+            if records:
+                df_balance = pd.DataFrame(records)
+                df_balance.rename(columns={'ann_date': 'date'},inplace=True)
+                df_balance.sort_values(['symbol', 'end_date', 'date'],inplace=True)
+                df_balance = df_balance.drop_duplicates(
+                    subset=['symbol', 'date'], 
+                    keep='last'
+                )
+                df_balance.drop(columns=['end_date'], errors='ignore',inplace=True)
+                all_data.append(df_balance)
+                logger.info(f"Fetched {len(df_balance)} financial balance sheet records (sorted by end_date)")
+
+        # 如果有现金流量表因子，从 financial_cashflow 表查询
+        if requested_cash_flow_factors:
+            logger.info(f"Fetching financial cash flow factors: {requested_cash_flow_factors}")
+            
+            extended_start = pd.to_datetime(start_date, format='%Y%m%d') - pd.DateOffset(months=18)
+            extended_start_str = extended_start.strftime('%Y%m%d')
+            
+            query = {}
+            query["ann_date"] = {"$gte": extended_start_str, "$lte": end_date}
+            
+            if index_component:
+                component_query = {}
+                if index_component == "000300":
+                    component_query["index_component"] = "100"
+                elif index_component == "000905":
+                    component_query["index_component"] = "010"
+                elif index_component == "000852":
+                    component_query["index_component"] = "001"
+                
+                collection_stock_market = self.db_handler.get_mongo_collection(
+                    self.config["MONGO_DB"],
+                    "stock_market"
+                )
+                component_symbols = collection_stock_market.distinct("symbol", component_query)
+                
+                if component_symbols:
+                    if symbols is None or len(symbols) == 0:
+                        symbols = component_symbols
+                    else:
+                        symbols = list(set(symbols) & set(component_symbols))
+                else:
+                    logger.warning(f"No symbols found for index component: {index_component}")
+                    return None
+            
+            if symbols is not None and len(symbols) > 0:
+                if isinstance(symbols, str):
+                    query['symbol'] = symbols
+                else:
+                    query['symbol'] = {"$in": symbols}
+            
+            base_fields = ['symbol', 'ann_date', 'end_date']
+            projection = {field: 1 for field in base_fields + requested_cash_flow_factors}
+            projection['_id'] = 0
+            
+            collection = self.db_handler.get_mongo_collection(
+                self.config["MONGO_DB"],
+                "financial_cashflow"
+            )
+            cursor = collection.find(query, projection).batch_size(100000)
+            records = list(cursor)
+            
+            if records:
+                df_cashflow = pd.DataFrame(records)
+                df_cashflow.rename(columns={'ann_date': 'date'},inplace=True)
+                df_cashflow.sort_values(['symbol', 'end_date', 'date'],inplace=True)
+                df_cashflow = df_cashflow.drop_duplicates(
+                    subset=['symbol', 'date'], 
+                    keep='last'
+                )
+                df_cashflow.drop(columns=['end_date'], errors='ignore',inplace=True)
+                all_data.append(df_cashflow)
+                logger.info(f"Fetched {len(df_cashflow)} financial cash flow records (sorted by end_date)")
+
         if not all_data:
             logger.warning(f"No data found for the specified parameters")
             return None
@@ -212,7 +433,7 @@ class FactorReader:
         for i, df in enumerate(all_data[1:], 1):
             # 如果是财务数据，使用 asof merge 进行前向填充
             # 财务数据是季度数据，需要填充到每个交易日
-            if i < len(all_data) and any(col in df.columns for col in requested_financial_factors):
+            if i < len(all_data) and any(col in df.columns for col in requested_all_financial_factors):
                 # 先进行外连接，然后按 symbol 分组前向填充
                 result = pd.merge(
                     result,
@@ -221,7 +442,7 @@ class FactorReader:
                     how='left'
                 )
                 # 按 symbol 分组，对财务字段进行前向填充
-                for col in requested_financial_factors:
+                for col in requested_all_financial_factors:
                     if col in result.columns:
                         result[col] = result.groupby('symbol')[col].fillna(method='ffill')
                         logger.info(f"Forward filled financial factor: {col}")

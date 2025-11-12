@@ -100,15 +100,15 @@ class FactorValuationCleanerTSProService(ABC):
             logger.info("正在获取估值因子数据......")
             # 获取 pe_ttm, ps_ttm, dv_ttm, circ_mv 字段
             valuation_data = self.pro.query('daily_basic', trade_date=date,
-                                          fields=['ts_code', 'pe_ttm', 'ps_ttm', 'dv_ttm', 'circ_mv'])
+                                            fields=['ts_code', 'pb', 'pe_ttm', 'ps_ttm', 'dv_ttm', 'circ_mv'])
 
             # 合并数据
-            result_data = data.merge(valuation_data[['ts_code', 'pe_ttm', 'ps_ttm', 'dv_ttm', 'circ_mv']],
-                                   on='ts_code', how='left')
+            result_data = data.merge(valuation_data[['ts_code', 'pb', 'pe_ttm', 'ps_ttm', 'dv_ttm', 'circ_mv']],
+                                     on='ts_code', how='left')
             result_data = result_data.drop(columns=['ts_code'])
 
             # 重新排列列顺序，确保与现有数据结构兼容
-            desired_order = ['date', 'symbol', 'pe_ttm', 'ps_ttm', 'dv_ttm', 'circ_mv']
+            desired_order = ['date', 'symbol', 'pb', 'pe_ttm', 'ps_ttm', 'dv_ttm', 'circ_mv']
             result_data = result_data[desired_order]
 
             ensure_collection_and_indexes(table_name='factor_base')

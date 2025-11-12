@@ -15,7 +15,8 @@ setup(
         'panda_data': 'panda_data',
         'panda_data.factor': 'panda_data/factor',
         'panda_data.market_data': 'panda_data/market_data',
-        'panda_data.scripts': 'panda_data/scripts'
+        'panda_data.scripts': 'panda_data/scripts',
+        'panda_data.financial': 'panda_data/financial'  # 新增
     },
     include_package_data=True,
     package_data={
@@ -23,6 +24,7 @@ setup(
             'factor/**/*',
             'market_data/**/*',
             'scripts/**/*',
+            'financial/**/*',  # 新增
             '*.yaml',
         ],
     },
