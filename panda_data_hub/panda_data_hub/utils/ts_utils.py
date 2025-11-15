@@ -103,12 +103,13 @@ class TushareTokenError(Exception):
     pass
 
 
-def ts_is_trading_day(date):
+def ts_is_trading_day(date, pro=None):
     """
     判断传入的日期是否为股票交易日
 
     参数:
     date: 日期字符串，格式为 "YYYY-MM-DD"
+    pro: 可选的 tushare pro_api 实例。如果提供，则使用该实例，避免创建新连接
 
     返回:
     bool: 如果是交易日返回 True，否则返回 False
@@ -117,19 +118,21 @@ def ts_is_trading_day(date):
     TushareTokenError: 当 token 无效或认证失败时
     """
     try:
-        # 每次调用时都重新获取配置并设置token，确保使用最新的token
-        from panda_common.config import get_config
-        config = get_config()
-        ts_token = config.get('TS_TOKEN')
-        if not ts_token:
-            raise ValueError(
-                "TS_TOKEN 未配置。请在配置文件 panda_common/config.yaml 中设置 TS_TOKEN。\n"
-                "您可以在 https://tushare.pro/ 注册并获取 Token。"
-            )
-        ts.set_token(ts_token)
+        # 如果没有提供 pro 实例，则创建一个新的（仅在必要时）
+        if pro is None:
+            from panda_common.config import get_config
+            config = get_config()
+            ts_token = config.get('TS_TOKEN')
+            if not ts_token:
+                raise ValueError(
+                    "TS_TOKEN 未配置。请在配置文件 panda_common/config.yaml 中设置 TS_TOKEN。\n"
+                    "您可以在 https://tushare.pro/ 注册并获取 Token。"
+                )
+            ts.set_token(ts_token)
+            pro = ts.pro_api()
         
         # 获取指定日期的交易日历信息
-        cal_df = ts.pro_api().query('trade_cal',
+        cal_df = pro.query('trade_cal',
                             exchange='SSE',
                             start_date=date.replace('-', ''),
                             end_date=date.replace('-', ''))
@@ -148,9 +151,12 @@ def ts_is_trading_day(date):
             return False
 
 
-def validate_tushare_token():
+def validate_tushare_token(pro=None):
     """
     验证 Tushare token 是否有效
+    
+    参数:
+    pro: 可选的 tushare pro_api 实例。如果提供，则使用该实例进行验证，避免创建新连接
     
     返回:
     tuple: (is_valid: bool, error_message: str)
@@ -163,12 +169,14 @@ def validate_tushare_token():
         if not ts_token:
             return False, "未配置 Tushare Token，请在配置文件中设置 TS_TOKEN"
         
-        ts.set_token(ts_token)
+        # 如果没有提供 pro 实例，则创建一个新的（仅在必要时）
+        if pro is None:
+            ts.set_token(ts_token)
+            pro = ts.pro_api()
         
         # 尝试调用一个简单的 API 来验证 token
         from datetime import datetime
         today = datetime.now().strftime('%Y%m%d')
-        pro = ts.pro_api()
         test_df = pro.query('trade_cal', exchange='SSE', start_date=today, end_date=today)
         
         if test_df is not None:
@@ -188,6 +196,7 @@ def validate_tushare_token():
             return False, f"权限不足：{error_msg}\n\n您的 Token 权限可能不足，请升级 Tushare 账户权限。"
         else:
             return False, f"Token 验证失败：{error_msg}"
+
 
 def get_previous_month_dates(date_str):
     """
