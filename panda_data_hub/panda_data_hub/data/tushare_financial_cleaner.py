@@ -1,16 +1,17 @@
 from abc import ABC
-import tushare as ts
 from pymongo import UpdateOne
 import traceback
 import pandas as pd
 from datetime import datetime
 from tqdm import tqdm
 import time
+import threading
 
 from panda_common.handlers.database_handler import DatabaseHandler
 from panda_common.logger_config import logger
 from panda_common.utils.stock_utils import get_exchange_suffix
 from panda_data_hub.utils.mongo_utils import ensure_collection_and_indexes_financial
+from panda_data_hub.utils.tushare_client import init_tushare_client, get_tushare_client
 
 
 class TSFinancialCleaner(ABC):
@@ -19,20 +20,13 @@ class TSFinancialCleaner(ABC):
     def __init__(self, config):
         self.config = config
         self.db_handler = DatabaseHandler(config)
-        try:
-            # 检查 TS_TOKEN 是否存在
-            ts_token = config.get('TS_TOKEN')
-            if not ts_token:
-                raise ValueError(
-                    "TS_TOKEN 未配置。请在配置文件 panda_common/config.yaml 中设置 TS_TOKEN。\n"
-                    "您可以在 https://tushare.pro/ 注册并获取 Token。"
-                )
-            ts.set_token(ts_token)
-            self.pro = ts.pro_api()
-        except Exception as e:
-            error_msg = f"Failed to initialize tushare: {str(e)}\nStack trace:\n{traceback.format_exc()}"
-            logger.error(error_msg)
-            raise
+        
+        # 初始化全局 tushare 客户端
+        init_tushare_client(config)
+        self.pro = get_tushare_client()
+        
+        # 创建锁以序列化 tushare API 调用，避免并发连接超限
+        self.tushare_lock = threading.Lock()
     
     def get_latest_report_period(self):
         """
@@ -213,10 +207,12 @@ class TSFinancialCleaner(ABC):
         with tqdm(total=len(periods), desc="利润表(VIP)", ncols=100) as pbar:
             for period in periods:
                 try:
-                    # 使用VIP接口一次性获取所有股票
-                    df = self.pro.income_vip(
-                        period=period
-                    )
+                    # 使用锁序列化 API 调用，避免并发连接超限
+                    with self.tushare_lock:
+                        # 使用VIP接口一次性获取所有股票
+                        df = self.pro.income_vip(
+                            period=period
+                        )
                     
                     if df.empty:
                         pbar.set_postfix_str(f"{period}: 无数据")
@@ -293,10 +289,12 @@ class TSFinancialCleaner(ABC):
             for symbol in symbols:
                 for period in periods:
                     try:
-                        df = self.pro.income(
-                            ts_code=symbol,
-                            period=period
-                        )
+                        # 使用锁序列化 API 调用，避免并发连接超限
+                        with self.tushare_lock:
+                            df = self.pro.income(
+                                ts_code=symbol,
+                                period=period
+                            )
                         
                         # PIT数据筛选：保留最早的f_ann_date记录
                         if not df.empty:
@@ -380,9 +378,11 @@ class TSFinancialCleaner(ABC):
         with tqdm(total=len(periods), desc="资产负债表(VIP)", ncols=100) as pbar:
             for period in periods:
                 try:
-                    df = self.pro.balancesheet_vip(
-                        period=period
-                    )
+                    # 使用锁序列化 API 调用，避免并发连接超限
+                    with self.tushare_lock:
+                        df = self.pro.balancesheet_vip(
+                            period=period
+                        )
                     
                     if df.empty:
                         pbar.set_postfix_str(f"{period}: 无数据")
@@ -463,10 +463,12 @@ class TSFinancialCleaner(ABC):
             for symbol in symbols:
                 for period in periods:
                     try:
-                        df = self.pro.balancesheet(
-                            ts_code=symbol,
-                            period=period
-                        )
+                        # 使用锁序列化 API 调用，避免并发连接超限
+                        with self.tushare_lock:
+                            df = self.pro.balancesheet(
+                                ts_code=symbol,
+                                period=period
+                            )
                         
                         # PIT数据筛选：保留最早的f_ann_date记录
                         if not df.empty:
@@ -555,9 +557,11 @@ class TSFinancialCleaner(ABC):
         with tqdm(total=len(periods), desc="现金流量表(VIP)", ncols=100) as pbar:
             for period in periods:
                 try:
-                    df = self.pro.cashflow_vip(
-                        period=period
-                    )
+                    # 使用锁序列化 API 调用，避免并发连接超限
+                    with self.tushare_lock:
+                        df = self.pro.cashflow_vip(
+                            period=period
+                        )
                     
                     if df.empty:
                         pbar.set_postfix_str(f"{period}: 无数据")
@@ -630,10 +634,12 @@ class TSFinancialCleaner(ABC):
             for symbol in symbols:
                 for period in periods:
                     try:
-                        df = self.pro.cashflow(
-                            ts_code=symbol,
-                            period=period
-                        )
+                        # 使用锁序列化 API 调用，避免并发连接超限
+                        with self.tushare_lock:
+                            df = self.pro.cashflow(
+                                ts_code=symbol,
+                                period=period
+                            )
                         
                         # PIT数据筛选：保留最早的f_ann_date记录
                         if not df.empty:
@@ -715,9 +721,11 @@ class TSFinancialCleaner(ABC):
         with tqdm(total=len(periods), desc="财务指标(VIP)", ncols=100) as pbar:
             for period in periods:
                 try:
-                    df = self.pro.fina_indicator_vip(
-                        period=period
-                    )
+                    # 使用锁序列化 API 调用，避免并发连接超限
+                    with self.tushare_lock:
+                        df = self.pro.fina_indicator_vip(
+                            period=period
+                        )
                     
                     if df.empty:
                         pbar.set_postfix_str(f"{period}: 无数据")
@@ -785,10 +793,12 @@ class TSFinancialCleaner(ABC):
             for symbol in symbols:
                 for period in periods:
                     try:
-                        df = self.pro.fina_indicator(
-                            ts_code=symbol,
-                            period=period
-                        )
+                        # 使用锁序列化 API 调用，避免并发连接超限
+                        with self.tushare_lock:
+                            df = self.pro.fina_indicator(
+                                ts_code=symbol,
+                                period=period
+                            )
                         if not df.empty:
                             df = df.sort_values('ann_date').groupby(['ts_code', 'end_date']).first().reset_index()
                             df['ts_code'] = df['ts_code'].apply(get_exchange_suffix)

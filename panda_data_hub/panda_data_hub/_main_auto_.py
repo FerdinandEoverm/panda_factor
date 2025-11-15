@@ -30,6 +30,10 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
 
     try:
+        # 初始化应用（包括 tushare 连接）
+        from panda_data_hub.utils.init_app import init_app
+        init_app()
+        
         # 创建并启动调度器（股票）
         manager.data_scheduler = DataScheduler()
         manager.data_scheduler.schedule_data()
@@ -42,7 +46,6 @@ if __name__ == "__main__":
         logger.info("Factor scheduler started successfully")
         logger.info("Data scheduler started successfully")
         logger.info("Financial scheduler started successfully")
-        logger.info("Dividend scheduler started successfully")
 
         while True:
             time.sleep(1)

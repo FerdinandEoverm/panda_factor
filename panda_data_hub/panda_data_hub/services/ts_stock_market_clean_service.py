@@ -1,7 +1,5 @@
 from abc import ABC
 
-
-import tushare as ts
 from pymongo import UpdateOne
 import traceback
 
@@ -10,6 +8,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 import time
+import threading
 
 from panda_common.handlers.database_handler import DatabaseHandler
 from panda_common.logger_config import logger
@@ -24,6 +23,7 @@ from panda_data_hub.utils.ts_utils import (
     validate_tushare_token
 )
 from panda_data_hub.services.ts_namechange_clean_service import TSNamechangeCleanService
+from panda_data_hub.utils.tushare_client import init_tushare_client, get_tushare_client
 
 """
        使用须知：因tushare对于接口返回数据条数具有严格限制，故无法一次拉取全量数据。此限制会导致接口运行效率偏低，请耐心等待。
@@ -42,20 +42,13 @@ class StockMarketCleanTSServicePRO(ABC):
         self.db_handler = DatabaseHandler(config)
         self.namechange_service = TSNamechangeCleanService(config)
         self.progress_callback = None
-        try:
-            # 检查 TS_TOKEN 是否存在
-            ts_token = config.get('TS_TOKEN')
-            if not ts_token:
-                raise ValueError(
-                    "TS_TOKEN 未配置。请在配置文件 panda_common/config.yaml 中设置 TS_TOKEN。\n"
-                    "您可以在 https://tushare.pro/ 注册并获取 Token。"
-                )
-            ts.set_token(ts_token)
-            self.pro = ts.pro_api()
-        except Exception as e:
-            error_msg = f"Failed to initialize tushare: {str(e)}\nStack trace:\n{traceback.format_exc()}"
-            logger.error(error_msg)
-            raise
+        
+        # 初始化全局 tushare 客户端
+        init_tushare_client(config)
+        self.pro = get_tushare_client()
+        
+        # 创建锁以序列化 tushare API 调用，避免并发连接超限
+        self.tushare_lock = threading.Lock()
 
     def set_progress_callback(self, callback):
         self.progress_callback = callback
@@ -260,85 +253,48 @@ class StockMarketCleanTSServicePRO(ABC):
         
         # 根据交易日去循环
         with tqdm(total=len(trading_days), desc="Processing Trading Days") as pbar:
-            # 分批处理，每批8天
-            batch_size = 8
-            total_batches = (len(trading_days) - 1) // batch_size + 1
-            
-            for i in range(0, len(trading_days), batch_size):
-                current_batch = i // batch_size + 1
-                batch_days = trading_days[i:i + batch_size]
-                
-                # 更新批次进度信息
-                if self.progress_callback:
-                    self.progress_callback({
-                        "current_task": f"正在处理第 {current_batch}/{total_batches} 批次数据",
-                        "batch_info": f"批次 {current_batch}/{total_batches} - 处理 {len(batch_days)} 个交易日",
-                        "current_date": f"{batch_days[0]} 到 {batch_days[-1]}",
-                        "trading_days_processed": processed_days,
-                        "trading_days_total": total_days,
-                    })
-                
-                with ThreadPoolExecutor(max_workers=10) as executor:
-                    futures = []
-                    for date in batch_days:
-                        futures.append(executor.submit(
-                            self.clean_meta_market_data,
-                            date_str=date
-                        ))
-
-                    # 等待当前批次的所有任务完成
-                    for future_idx, future in enumerate(futures):
-                        try:
-                            future.result()
-                            processed_days += 1
-                            progress = int((processed_days / total_days) * 100)
-                            
-                            current_date = batch_days[future_idx] if future_idx < len(batch_days) else ""
-                            
-                            # 更新详细进度
-                            if self.progress_callback:
-                                self.progress_callback({
-                                    "progress_percent": progress,
-                                    "current_task": f"正在处理交易日数据",
-                                    "processed_count": processed_days,
-                                    "total_count": total_days,
-                                    "current_date": current_date,
-                                    "batch_info": f"批次 {current_batch}/{total_batches} - 已完成 {processed_days}/{total_days} 个交易日",
-                                    "trading_days_processed": processed_days,
-                                    "trading_days_total": total_days,
-                                })
-                            pbar.update(1)
-                            logger.info(f"完成处理交易日: {current_date} ({processed_days}/{total_days})")
-                            
-                        except Exception as e:
-                            processed_days += 1
-                            current_date = batch_days[future_idx] if future_idx < len(batch_days) else ""
-                            logger.error(f"处理交易日 {current_date} 失败: {e}")
-                            
-                            # 即使失败也更新进度
-                            if self.progress_callback:
-                                progress = int((processed_days / total_days) * 100)
-                                self.progress_callback({
-                                    "progress_percent": progress,
-                                    "current_task": f"处理交易日 {current_date} 时出现错误",
-                                    "processed_count": processed_days,
-                                    "total_count": total_days,
-                                    "current_date": current_date,
-                                    "error_message": f"处理 {current_date} 失败: {str(e)[:100]}...",
-                                })
-                            pbar.update(1)
-
-                # 批次之间添加短暂延迟，避免连接数超限
-                if i + batch_size < len(trading_days):
-                    logger.info(f"完成批次 {current_batch}/{total_batches}，等待10秒后继续...")
+            # 使用单线程处理，避免并发导致 tushare 连接超限
+            # tushare 免费版本最多允许 2 个 IP 连接，并发调用会导致超限
+            for date_idx, date in enumerate(trading_days):
+                try:
+                    # 更新进度信息
+                    processed_days += 1
+                    progress = int((processed_days / total_days) * 100)
+                    
                     if self.progress_callback:
                         self.progress_callback({
-                            "current_task": f"批次间等待 - 已完成 {current_batch}/{total_batches} 批次",
-                            "batch_info": f"等待10秒后处理下一批次...",
+                            "progress_percent": progress,
+                            "current_task": f"正在处理交易日数据",
+                            "processed_count": processed_days,
+                            "total_count": total_days,
+                            "current_date": date,
+                            "batch_info": f"已完成 {processed_days}/{total_days} 个交易日",
                             "trading_days_processed": processed_days,
                             "trading_days_total": total_days,
                         })
-                    time.sleep(10)
+                    
+                    self.clean_meta_market_data(date_str=date)
+                    pbar.update(1)
+                    logger.info(f"完成处理交易日: {date} ({processed_days}/{total_days})")
+                    
+                    # 每次请求后添加短暂延迟，避免 API 限流
+                    time.sleep(0.5)
+                    
+                except Exception as e:
+                    logger.error(f"处理交易日 {date} 失败: {e}")
+                    
+                    # 即使失败也更新进度
+                    if self.progress_callback:
+                        progress = int((processed_days / total_days) * 100)
+                        self.progress_callback({
+                            "progress_percent": progress,
+                            "current_task": f"处理交易日 {date} 时出现错误",
+                            "processed_count": processed_days,
+                            "total_count": total_days,
+                            "current_date": date,
+                            "error_message": f"处理 {date} 失败: {str(e)[:100]}...",
+                        })
+                    pbar.update(1)
         
         logger.info("所有交易日数据处理完成")
         
@@ -357,11 +313,13 @@ class StockMarketCleanTSServicePRO(ABC):
                 "status": "completed"
             })
 
-    def clean_meta_market_data(self,date_str):
+    def clean_meta_market_data(self, date_str):
         try:
             date = date_str.replace("-", "")
             #  获取当日股票的历史行情
-            price_data = self.pro.query('daily', trade_date=date)
+            # 使用锁序列化 tushare API 调用，避免并发连接超限
+            with self.tushare_lock:
+                price_data = self.pro.query('daily', trade_date=date)
             # 重置股票行情数据索引
             price_data.reset_index(drop=False, inplace=True)
             
@@ -382,12 +340,14 @@ class StockMarketCleanTSServicePRO(ABC):
             # tushare关于中证500和中证1000这两个指数只有每月的最后一个交易日才有数据，对于沪深300成分股是每月的第一个交易日和最后一个交易日才有数据
             # 根据日期获取当月三个指数的
             mid_date,last_date = get_previous_month_dates(date_str = date)
-            # 沪深300
-            hs_300 = self.pro.query('index_weight', index_code='399300.SZ', start_date=mid_date, end_date=last_date)
-            # 中证500
-            zz_500 = self.pro.query('index_weight', index_code='000905.SH', start_date=mid_date, end_date=last_date)
-            # 中证1000
-            zz_1000 = self.pro.query('index_weight', index_code='000852.SH', start_date=mid_date, end_date=last_date)
+            # 使用锁序列化 tushare API 调用，避免并发连接超限
+            with self.tushare_lock:
+                # 沪深300
+                hs_300 = self.pro.query('index_weight', index_code='399300.SZ', start_date=mid_date, end_date=last_date)
+                # 中证500
+                zz_500 = self.pro.query('index_weight', index_code='000905.SH', start_date=mid_date, end_date=last_date)
+                # 中证1000
+                zz_1000 = self.pro.query('index_weight', index_code='000852.SH', start_date=mid_date, end_date=last_date)
             
             processed_stocks = 0
             for idx, row in price_data.iterrows():
@@ -426,7 +386,9 @@ class StockMarketCleanTSServicePRO(ABC):
             # 从MongoDB获取历史名称变更信息（已预先同步，避免每次调用API）
             namechange_info = self.namechange_service.get_namechange_data(end_date=date)
             #获取目前所有股票的名称
-            stock_info = self.pro.query('stock_basic')
+            # 使用锁序列化 tushare API 调用，避免并发连接超限
+            with self.tushare_lock:
+                stock_info = self.pro.query('stock_basic')
             
             processed_names = 0
             for idx, row in price_data.iterrows():

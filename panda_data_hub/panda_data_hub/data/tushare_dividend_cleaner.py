@@ -1,6 +1,5 @@
 import calendar
 from abc import ABC
-import tushare as ts
 from pymongo import UpdateOne
 import traceback
 from datetime import datetime, timedelta
@@ -9,6 +8,7 @@ from panda_common.logger_config import logger
 from panda_common.utils.stock_utils import get_exchange_suffix
 from panda_data_hub.utils.mongo_utils import ensure_collection_and_indexes
 from panda_data_hub.utils.ts_utils import get_tushare_suffix
+from panda_data_hub.utils.tushare_client import init_tushare_client, get_tushare_client
 
 
 class TSDividendCleaner(ABC):
@@ -20,20 +20,10 @@ class TSDividendCleaner(ABC):
         self.config = config
         self.db_handler = DatabaseHandler(config)
         self.progress_callback = None
-        try:
-            # 检查 TS_TOKEN 是否存在
-            ts_token = config.get('TS_TOKEN')
-            if not ts_token:
-                raise ValueError(
-                    "TS_TOKEN 未配置。请在配置文件 panda_common/config.yaml 中设置 TS_TOKEN。\n"
-                    "您可以在 https://tushare.pro/ 注册并获取 Token。"
-                )
-            ts.set_token(ts_token)
-            self.pro = ts.pro_api()
-        except Exception as e:
-            error_msg = f"Failed to initialize tushare: {str(e)}\nStack trace:\n{traceback.format_exc()}"
-            logger.error(error_msg)
-            raise
+        
+        # 初始化全局 tushare 客户端
+        init_tushare_client(config)
+        self.pro = get_tushare_client()
     
     def set_progress_callback(self, callback):
         """设置进度回调函数"""

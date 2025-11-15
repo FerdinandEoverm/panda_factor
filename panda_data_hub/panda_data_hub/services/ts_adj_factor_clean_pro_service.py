@@ -1,17 +1,18 @@
 from abc import ABC
-import tushare as ts
-from pymongo import UpdateOne
 import traceback
-
-import pandas as pd
 from datetime import datetime
+
+from panda_common.handlers.database_handler import DatabaseHandler
+from panda_common.logger_config import logger
+from panda_data_hub.utils.tushare_client import init_tushare_client, get_tushare_client
+from panda_data_hub.utils.mongo_utils import ensure_collection_and_indexes
+from panda_data_hub.utils.ts_utils import get_tushare_suffix
+import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 import time
-from panda_common.handlers.database_handler import DatabaseHandler
-from panda_common.logger_config import logger
-from panda_data_hub.utils.mongo_utils import ensure_collection_and_indexes
-from panda_data_hub.utils.ts_utils import get_tushare_suffix
+import threading
+import tushare as ts
 
 
 class AdjFactorCleanerTSProService(ABC):
@@ -20,20 +21,13 @@ class AdjFactorCleanerTSProService(ABC):
         self.config = config
         self.db_handler = DatabaseHandler(config)
         self.progress_callback = None
-        try:
-            # 检查 TS_TOKEN 是否存在
-            ts_token = config.get('TS_TOKEN')
-            if not ts_token:
-                raise ValueError(
-                    "TS_TOKEN 未配置。请在配置文件 panda_common/config.yaml 中设置 TS_TOKEN。\n"
-                    "您可以在 https://tushare.pro/ 注册并获取 Token。"
-                )
-            ts.set_token(ts_token)
-            self.pro = ts.pro_api()
-        except Exception as e:
-            error_msg = f"Failed to initialize tushare: {str(e)}\nStack trace:\n{traceback.format_exc()}"
-            logger.error(error_msg)
-            raise
+        
+        # 初始化全局 tushare 客户端
+        init_tushare_client(config)
+        self.pro = get_tushare_client()
+        
+        # 创建锁以序列化 tushare API 调用，避免并发连接超限
+        self.tushare_lock = threading.Lock()
 
     def set_progress_callback(self, callback):
         self.progress_callback = callback
@@ -48,39 +42,24 @@ class AdjFactorCleanerTSProService(ABC):
         total_days = len(trading_days)
         processed_days = 0
         with tqdm(total=len(trading_days), desc="Processing Adj Factor Trading Days") as pbar:
-            # 分批处理，每批10天
-            batch_size = 10
-            for i in range(0, len(trading_days), batch_size):
-                batch_days = trading_days[i:i + batch_size]
-                with ThreadPoolExecutor(max_workers=8) as executor:
-                    futures = []
-                    for date in batch_days:
-                        futures.append(
-                            executor.submit(
-                                self.clean_daily_data,
-                                date_str=date,
-                                pbar=pbar
-                            ))
-                    # 等待当前批次的所有任务完成
-                    for future in futures:
-                        try:
-                            future.result()
-                            processed_days += 1
-                            progress = int((processed_days / total_days) * 100)
+            # 使用单线程处理，避免并发导致 tushare 连接超限
+            # tushare 免费版本最多允许 2 个 IP 连接，并发调用会导致超限
+            for date in trading_days:
+                try:
+                    self.clean_daily_data(date_str=date, pbar=pbar)
+                    processed_days += 1
+                    progress = int((processed_days / total_days) * 100)
 
-                            # 更新进度
-                            if self.progress_callback:
-                                self.progress_callback(progress)
-                            pbar.update(1)
-                        except Exception as e:
-                            logger.error(f"Task failed: {e}")
-                            pbar.update(1)  # 即使任务失败也更新进度条
+                    # 更新进度
+                    if self.progress_callback:
+                        self.progress_callback(progress)
+                    pbar.update(1)
+                except Exception as e:
+                    logger.error(f"Task failed: {e}")
+                    pbar.update(1)  # 即使任务失败也更新进度条
 
-                # 批次之间添加短暂延迟，避免连接数超限
-                if i + batch_size < len(trading_days):
-                    logger.info(
-                        f"完成批次 {i // batch_size + 1}/{(len(trading_days) - 1) // batch_size + 1}，等待10秒后继续...")
-                    time.sleep(10)
+                # 每次请求后添加短暂延迟，避免 API 限流
+                time.sleep(0.5)
         logger.info("复权因子数据清洗全部完成！！！")
 
     def clean_daily_data(self, date_str, pbar):
@@ -98,7 +77,9 @@ class AdjFactorCleanerTSProService(ABC):
             data['ts_code'] = data['symbol'].apply(get_tushare_suffix)
 
             logger.info("正在获取复权因子数据......")
-            adj_factor_data = self.pro.query("adj_factor", trade_date=date, fields=['ts_code', 'adj_factor'])
+            # 使用锁序列化 tushare API 调用，避免并发连接超限
+            with self.tushare_lock:
+                adj_factor_data = self.pro.query("adj_factor", trade_date=date, fields=['ts_code', 'adj_factor'])
             result_data = data.merge(adj_factor_data[['ts_code', 'adj_factor']], on='ts_code', how='left')
             result_data = result_data.drop(columns=['ts_code'])
 

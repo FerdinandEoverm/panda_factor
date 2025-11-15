@@ -41,6 +41,11 @@ async def home():
 
 def main():
     import uvicorn
+    from panda_data_hub.utils.init_app import init_app
+    
+    # 初始化应用（包括 tushare 连接）
+    init_app()
+    
     uvicorn.run(app, host="0.0.0.0", port=8111)
 
 if __name__ == "__main__":

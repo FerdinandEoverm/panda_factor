@@ -614,10 +614,14 @@ async def api_info():
 def main():
     import uvicorn
     from panda_common.logger_config import logger
+    from panda_data_hub.utils.init_app import init_app
     
     logger.info("=" * 60)
     logger.info("天蝎座量化投资系统 Web服务器启动中...")
     logger.info("=" * 60)
+    
+    # 初始化应用（包括 tushare 连接）
+    init_app()
     
     print("\n" + "=" * 60)
     print("  天蝎座量化投资系统 Web服务器")
