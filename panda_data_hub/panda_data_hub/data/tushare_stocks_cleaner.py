@@ -29,13 +29,13 @@ class TSStockCleaner(ABC):
     def clean_metadata(self):
         try:
             logger.info("Starting metadata cleaning for Tushare")
-            stocks = self.pro.query('stock_basic')
-            stocks = stocks[['ts_code', 'name']]
+            basic_col = ['ts_code','name','list_date','delist_date']
+            stocks = self.pro.query('stock_basic',list_status='L,D',fields=basic_col)
             stocks = stocks[stocks["name"] != "UNKNOWN"]
             stocks['symbol'] = stocks['ts_code'].apply(get_exchange_suffix)
             stocks = stocks.drop(columns=['ts_code'])
             stocks['expired'] = False
-            desired_order = ['symbol', 'name', 'expired']
+            desired_order = ['symbol', 'name', 'list_date','delist_date','expired']
             stocks = stocks[desired_order]
 
             logger.info("Updating MongoDB stocks collection")

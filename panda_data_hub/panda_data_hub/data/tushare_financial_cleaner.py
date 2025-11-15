@@ -204,11 +204,8 @@ class TSFinancialCleaner(ABC):
         """使用VIP接口清洗利润表数据"""
         logger.info(f"[利润表-VIP] 开始清洗 {len(periods)} 个报告期")
         
-        core_fields = [
-            'ts_code', 'end_date', 'ann_date', 'f_ann_date', 'report_type', 'update_flag',
-            'total_revenue', 'revenue', 'operate_profit', 'total_profit',
-            'n_income', 'n_income_attr_p', 'basic_eps', 'diluted_eps',
-        ]
+        # 不指定fields参数，获取所有可用字段
+        core_fields = None
         
         total_saved = 0
         missing_f_ann_date_count = 0
@@ -218,8 +215,7 @@ class TSFinancialCleaner(ABC):
                 try:
                     # 使用VIP接口一次性获取所有股票
                     df = self.pro.income_vip(
-                        period=period,
-                        fields=','.join(core_fields)
+                        period=period
                     )
                     
                     if df.empty:
@@ -285,11 +281,8 @@ class TSFinancialCleaner(ABC):
         """使用普通接口清洗利润表数据"""
         logger.info(f"[利润表] 开始清洗 {len(symbols)} 只股票 × {len(periods)} 个报告期")
         
-        core_fields = [
-            'ts_code', 'end_date', 'ann_date', 'f_ann_date', 'report_type', 'update_flag',
-            'total_revenue', 'revenue', 'operate_profit', 'total_profit',
-            'n_income', 'n_income_attr_p', 'basic_eps', 'diluted_eps',
-        ]
+        # 不指定fields参数，获取所有可用字段
+        core_fields = None
         
         total_tasks = len(symbols) * len(periods)
         processed = 0
@@ -302,8 +295,7 @@ class TSFinancialCleaner(ABC):
                     try:
                         df = self.pro.income(
                             ts_code=symbol,
-                            period=period,
-                            fields=','.join(core_fields)
+                            period=period
                         )
                         
                         # PIT数据筛选：保留最早的f_ann_date记录
@@ -378,12 +370,8 @@ class TSFinancialCleaner(ABC):
         """使用VIP接口清洗资产负债表数据"""
         logger.info(f"[资产负债表-VIP] 开始清洗 {len(periods)} 个报告期")
         
-        core_fields = [
-            'ts_code', 'end_date', 'ann_date', 'f_ann_date', 'report_type', 'update_flag',
-            'total_assets', 'total_cur_assets', 'total_nca',
-            'total_liab', 'total_cur_liab', 'total_ncl',
-            'total_hldr_eqy_exc_min_int', 'total_hldr_eqy_inc_min_int',
-        ]
+        # 不指定fields参数，获取所有可用字段
+        core_fields = None
         
         total_saved = 0
         validation_failed = 0
@@ -393,8 +381,7 @@ class TSFinancialCleaner(ABC):
             for period in periods:
                 try:
                     df = self.pro.balancesheet_vip(
-                        period=period,
-                        fields=','.join(core_fields)
+                        period=period
                     )
                     
                     if df.empty:
@@ -463,12 +450,8 @@ class TSFinancialCleaner(ABC):
         """使用普通接口清洗资产负债表数据"""
         logger.info(f"[资产负债表] 开始清洗 {len(symbols)} 只股票 × {len(periods)} 个报告期")
         
-        core_fields = [
-            'ts_code', 'end_date', 'ann_date', 'f_ann_date', 'report_type', 'update_flag',
-            'total_assets', 'total_cur_assets', 'total_nca',
-            'total_liab', 'total_cur_liab', 'total_ncl',
-            'total_hldr_eqy_exc_min_int', 'total_hldr_eqy_inc_min_int',
-        ]
+        # 不指定fields参数，获取所有可用字段
+        core_fields = None
         
         total_tasks = len(symbols) * len(periods)
         processed = 0
@@ -482,8 +465,7 @@ class TSFinancialCleaner(ABC):
                     try:
                         df = self.pro.balancesheet(
                             ts_code=symbol,
-                            period=period,
-                            fields=','.join(core_fields)
+                            period=period
                         )
                         
                         # PIT数据筛选：保留最早的f_ann_date记录
@@ -564,11 +546,8 @@ class TSFinancialCleaner(ABC):
         """使用VIP接口清洗现金流量表数据"""
         logger.info(f"[现金流量表-VIP] 开始清洗 {len(periods)} 个报告期")
         
-        core_fields = [
-            'ts_code', 'end_date', 'ann_date', 'f_ann_date', 'report_type', 'update_flag',
-            'n_cashflow_act', 'n_cashflow_inv_act', 'n_cashflow_fnc_act',
-            'c_cash_equ_end_period', 'c_cash_equ_beg_period',
-        ]
+        # 不指定fields参数，获取所有可用字段
+        core_fields = None
         
         total_saved = 0
         missing_f_ann_date_count = 0
@@ -577,8 +556,7 @@ class TSFinancialCleaner(ABC):
             for period in periods:
                 try:
                     df = self.pro.cashflow_vip(
-                        period=period,
-                        fields=','.join(core_fields)
+                        period=period
                     )
                     
                     if df.empty:
@@ -640,11 +618,8 @@ class TSFinancialCleaner(ABC):
         """使用普通接口清洗现金流量表数据"""
         logger.info(f"[现金流量表] 开始清洗 {len(symbols)} 只股票 × {len(periods)} 个报告期")
         
-        core_fields = [
-            'ts_code', 'end_date', 'ann_date', 'f_ann_date', 'report_type', 'update_flag',
-            'n_cashflow_act', 'n_cashflow_inv_act', 'n_cashflow_fnc_act',
-            'c_cash_equ_end_period', 'c_cash_equ_beg_period',
-        ]
+        # 不指定fields参数，获取所有可用字段
+        core_fields = None
         
         total_tasks = len(symbols) * len(periods)
         processed = 0
@@ -657,8 +632,7 @@ class TSFinancialCleaner(ABC):
                     try:
                         df = self.pro.cashflow(
                             ts_code=symbol,
-                            period=period,
-                            fields=','.join(core_fields)
+                            period=period
                         )
                         
                         # PIT数据筛选：保留最早的f_ann_date记录
@@ -732,12 +706,8 @@ class TSFinancialCleaner(ABC):
         """使用VIP接口清洗财务指标数据"""
         logger.info(f"[财务指标-VIP] 开始清洗 {len(periods)} 个报告期")
         
-        core_fields = [
-            'ts_code', 'end_date', 'ann_date', 'update_flag',
-            'roe', 'roe_waa', 'roe_dt', 'roa',
-            'gross_margin', 'netprofit_margin', 'debt_to_assets',
-            'current_ratio', 'quick_ratio', 'q_roe', 'q_dt_roe',
-        ]
+        # 不指定fields参数，获取所有可用字段
+        core_fields = None
         
         total_saved = 0
         missing_f_ann_date_count = 0
@@ -746,8 +716,7 @@ class TSFinancialCleaner(ABC):
             for period in periods:
                 try:
                     df = self.pro.fina_indicator_vip(
-                        period=period,
-                        fields=','.join(core_fields)
+                        period=period
                     )
                     
                     if df.empty:
@@ -804,12 +773,8 @@ class TSFinancialCleaner(ABC):
         """使用普通接口清洗财务指标数据"""
         logger.info(f"[财务指标] 开始清洗 {len(symbols)} 只股票 × {len(periods)} 个报告期")
         
-        core_fields = [
-            'ts_code', 'end_date', 'ann_date', 'update_flag',
-            'roe', 'roe_waa', 'roe_dt', 'roa',
-            'gross_margin', 'netprofit_margin', 'debt_to_assets',
-            'current_ratio', 'quick_ratio', 'q_roe', 'q_dt_roe',
-        ]
+        # 不指定fields参数，获取所有可用字段
+        core_fields = None
         
         total_tasks = len(symbols) * len(periods)
         processed = 0
@@ -822,8 +787,7 @@ class TSFinancialCleaner(ABC):
                     try:
                         df = self.pro.fina_indicator(
                             ts_code=symbol,
-                            period=period,
-                            fields=','.join(core_fields)
+                            period=period
                         )
                         if not df.empty:
                             df = df.sort_values('ann_date').groupby(['ts_code', 'end_date']).first().reset_index()

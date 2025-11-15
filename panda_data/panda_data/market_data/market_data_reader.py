@@ -214,6 +214,168 @@ class MarketDataReader:
 
         return final_df
 
+    def get_st_stocks_by_date(self, date: str) -> Optional[List[str]]:
+        """
+        Get all ST stocks for a specific date
+        
+        Args:
+            date (str): Date in YYYYMMDD format
+            
+        Returns:
+            List[str]: List of ST stock symbols for the given date, or None if no ST stocks found
+        """
+        try:
+            # Build query for ST stocks on the specified date
+            query = {
+                "date": date,
+                "name": {"$regex": "ST"}  # Match stocks with "ST" in their name
+            }
+            
+            collection = self.db_handler.get_mongo_collection(
+                self.config["MONGO_DB"],
+                "stock_market"
+            )
+            
+            # Get distinct symbols matching the query
+            st_symbols = collection.distinct("symbol", query)
+            
+            if not st_symbols:
+                logger.warning(f"No ST stocks found for date {date}")
+                return None
+            
+            logger.info(f"Found {len(st_symbols)} ST stocks for date {date}")
+            return st_symbols
+            
+        except Exception as e:
+            logger.error(f"Error querying ST stocks for date {date}: {str(e)}")
+            return None
+
+    def get_stocks_by_listing_days(self, date: str, min_trading_days: int = 250) -> Optional[List[str]]:
+        """
+        获取上市天数满足条件的股票列表
+        
+        根据上市日期和参考日期计算上市天数，返回满足最小上市天数要求的股票列表。
+        
+        参数:
+            date (str): 参考日期，格式为 YYYYMMDD (例如: "20250115")
+            min_trading_days (int): 最小上市天数，默认为 250 天
+            
+        返回:
+            List[str]: 满足条件的股票代码列表，如果没有找到则返回 None
+        """
+        try:
+            # 获取 stocks 集合
+            collection = self.db_handler.get_mongo_collection(
+                self.config["MONGO_DB"],
+                "stocks"
+            )
+            
+            # 将参考日期转换为 datetime 对象用于计算
+            ref_date = datetime.strptime(date, "%Y%m%d")
+            
+            # 查询所有股票信息
+            qualified_symbols = []
+            
+            # 遍历所有股票，检查上市天数
+            for stock in collection.find({}):
+                symbol = stock.get("symbol")
+                list_date = stock.get("list_date")
+                
+                if not symbol or not list_date:
+                    continue
+                
+                try:
+                    # 将上市日期转换为 datetime 对象
+                    listing_date = datetime.strptime(str(list_date), "%Y%m%d")
+                    
+                    # 计算上市天数
+                    days_since_listing = (ref_date - listing_date).days
+                    
+                    # 检查是否满足最小上市天数要求
+                    if days_since_listing >= min_trading_days:
+                        qualified_symbols.append(symbol)
+                        
+                except ValueError as e:
+                    logger.warning(f"股票 {symbol} 的上市日期格式错误: {list_date}, 错误: {str(e)}")
+                    continue
+            
+            if not qualified_symbols:
+                logger.warning(f"在 {date} 没有找到上市天数 >= {min_trading_days} 的股票")
+                return None
+            
+            logger.info(f"在 {date} 找到 {len(qualified_symbols)} 只上市天数 >= {min_trading_days} 的股票")
+            return qualified_symbols
+            
+        except Exception as e:
+            logger.error(f"查询上市天数满足条件的股票时出错 (日期: {date}): {str(e)}")
+            return None
+
+    def get_stocks_by_listing_date(self, date: str, max_days_since_listing: Optional[int] = None) -> Optional[List[str]]:
+        """
+        根据上市日期过滤股票列表
+        
+        返回在参考日期之前上市的股票，可选择限制最大上市天数。
+        
+        参数:
+            date (str): 参考日期，格式为 YYYYMMDD (例如: "20250115")
+            max_days_since_listing (int, 可选): 最大上市天数限制
+                - 如果为 None: 返回所有在参考日期之前上市的股票
+                - 如果设置值: 返回在参考日期前 N 天内上市的股票 (例如: 250 表示最近 250 天内上市的股票)
+            
+        返回:
+            List[str]: 满足条件的股票代码列表，如果没有找到则返回 None
+        """
+        try:
+            # 获取 stocks 集合
+            collection = self.db_handler.get_mongo_collection(
+                self.config["MONGO_DB"],
+                "stocks"
+            )
+            
+            # 将参考日期转换为 datetime 对象用于计算
+            ref_date = datetime.strptime(date, "%Y%m%d")
+            
+            # 查询所有股票信息
+            qualified_symbols = []
+            
+            # 遍历所有股票，检查上市日期
+            for stock in collection.find({}):
+                symbol = stock.get("symbol")
+                list_date = stock.get("list_date")
+                
+                if not symbol or not list_date:
+                    continue
+                
+                try:
+                    # 将上市日期转换为 datetime 对象
+                    listing_date = datetime.strptime(str(list_date), "%Y%m%d")
+                    
+                    # 检查上市日期是否不晚于参考日期
+                    if listing_date <= ref_date:
+                        # 如果设置了最大上市天数限制，进行额外检查
+                        if max_days_since_listing is not None:
+                            days_since_listing = (ref_date - listing_date).days
+                            if days_since_listing <= max_days_since_listing:
+                                qualified_symbols.append(symbol)
+                        else:
+                            # 没有最大天数限制，直接添加
+                            qualified_symbols.append(symbol)
+                            
+                except ValueError as e:
+                    logger.warning(f"股票 {symbol} 的上市日期格式错误: {list_date}, 错误: {str(e)}")
+                    continue
+            
+            if not qualified_symbols:
+                logger.warning(f"在 {date} 没有找到满足上市日期条件的股票")
+                return None
+            
+            logger.info(f"在 {date} 找到 {len(qualified_symbols)} 只满足上市日期条件的股票")
+            return qualified_symbols
+            
+        except Exception as e:
+            logger.error(f"查询上市日期满足条件的股票时出错 (日期: {date}): {str(e)}")
+            return None
+
     def get_all_symbols(self):
         """Get all unique symbols using distinct command"""
         collection = self.db_handler.get_mongo_collection(

@@ -379,3 +379,72 @@ def ensure_collection_and_indexes_adj_factor(table_name):
     except Exception as e:
         logger.error(f"创建复权因子数据集合或索引失败: {str(e)}")
         raise
+
+
+def ensure_collection_and_indexes_namechange(table_name):
+    """
+    确保股票名称变更数据集合存在并创建所需的索引
+    股票名称变更数据表使用 (ts_code, ann_date) 作为复合唯一索引
+    """
+    try:
+        # 获取数据库对象
+        db = DatabaseHandler(config).mongo_client[config["MONGO_DB"]]
+        collection_name = table_name
+
+        # 检查集合是否存在
+        if collection_name not in db.list_collection_names():
+            # 创建集合
+            db.create_collection(collection_name)
+            logger.info(f"成功创建股票名称变更数据集合 {collection_name}")
+
+        # 获取集合对象
+        collection = db[collection_name]
+
+        # 获取现有的索引信息
+        existing_indexes = collection.index_information()
+
+        # 创建主要的复合索引：symbol + ann_date + name
+        # 使用普通索引而不是唯一索引，避免重复键冲突
+        index_name = 'symbol_ann_date_name_idx'
+        if index_name not in existing_indexes:
+            collection.create_index(
+                [
+                    ('symbol', 1),
+                    ('ann_date', 1),
+                    ('name', 1)
+                ],
+                name=index_name,
+                unique=False,  # 改为普通索引，避免重复键冲突
+                background=True
+            )
+            logger.info(f"成功创建股票名称变更数据索引 {index_name}")
+        else:
+            logger.info(f"股票名称变更数据索引 {index_name} 已存在")
+
+        # 创建辅助索引：ann_date（用于按公告日期查询所有名称变更）
+        ann_date_index_name = 'ann_date_idx'
+        if ann_date_index_name not in existing_indexes:
+            collection.create_index(
+                [('ann_date', 1)],
+                name=ann_date_index_name,
+                background=True
+            )
+            logger.info(f"成功创建股票名称变更数据索引 {ann_date_index_name}")
+        else:
+            logger.info(f"股票名称变更数据索引 {ann_date_index_name} 已存在")
+
+        # 创建辅助索引：ts_code（用于查询某只股票的所有名称变更历史）
+        ts_code_index_name = 'symbol_idx'
+        if ts_code_index_name not in existing_indexes:
+            collection.create_index(
+                [('symbol', 1)],
+                name=ts_code_index_name,
+                background=True
+            )
+            logger.info(f"成功创建股票名称变更数据索引 {ts_code_index_name}")
+        else:
+            logger.info(f"股票名称变更数据索引 {ts_code_index_name} 已存在")
+
+    except Exception as e:
+        logger.error(f"创建股票名称变更数据集合或索引失败: {str(e)}")
+        raise

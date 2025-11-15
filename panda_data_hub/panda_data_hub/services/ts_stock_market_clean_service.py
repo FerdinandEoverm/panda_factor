@@ -16,13 +16,14 @@ from panda_common.logger_config import logger
 from panda_common.utils.stock_utils import get_exchange_suffix
 from panda_data_hub.utils.mongo_utils import ensure_collection_and_indexes
 from panda_data_hub.utils.ts_utils import (
-    calculate_upper_limit, 
-    ts_is_trading_day, 
+    calculate_upper_limit,
+    ts_is_trading_day,
     get_previous_month_dates,
     calculate_lower_limit,
     TushareTokenError,
     validate_tushare_token
 )
+from panda_data_hub.services.ts_namechange_clean_service import TSNamechangeCleanService
 
 """
        使用须知：因tushare对于接口返回数据条数具有严格限制，故无法一次拉取全量数据。此限制会导致接口运行效率偏低，请耐心等待。
@@ -39,6 +40,7 @@ class StockMarketCleanTSServicePRO(ABC):
     def __init__(self, config):
         self.config = config
         self.db_handler = DatabaseHandler(config)
+        self.namechange_service = TSNamechangeCleanService(config)
         self.progress_callback = None
         try:
             # 检查 TS_TOKEN 是否存在
@@ -143,9 +145,9 @@ class StockMarketCleanTSServicePRO(ABC):
                 "status": "running"
             })
         
-        # 在开始前验证 token
+        # 在开始前验证 token（使用已有的连接，避免创建新连接）
         logger.info("验证 Tushare Token...")
-        is_valid, error_message = validate_tushare_token()
+        is_valid, error_message = validate_tushare_token(self.pro)
         if not is_valid:
             logger.error(f"Tushare Token 验证失败: {error_message}")
             if self.progress_callback:
@@ -181,7 +183,7 @@ class StockMarketCleanTSServicePRO(ABC):
         try:
             for date in date_range:
                 date_str = datetime.strftime(date, "%Y-%m-%d")
-                if ts_is_trading_day(date_str):
+                if ts_is_trading_day(date_str, self.pro):
                     all_trading_days.append(date_str)
                 else:
                     logger.info(f"跳过非交易日: {date_str}")
@@ -205,7 +207,7 @@ class StockMarketCleanTSServicePRO(ABC):
         # 检查已存在的完整数据（如果不是强制更新模式）
         trading_days = []
         skipped_days = []
-        
+        force_update = True
         if force_update:
             logger.info("强制更新模式：将处理所有交易日")
             trading_days = all_trading_days
@@ -421,9 +423,8 @@ class StockMarketCleanTSServicePRO(ABC):
             # 洗name列
             # 报错ERROR - Error checking if ****** on date: single positional indexer is out-of-bounds，说明该股票已经退市
             price_data['name'] = None
-            # 获取历史名称变更信息
-            # end_date = 20250423的数据条数一共是7413,接口最多返回10000条数据，目前是足够的
-            namechange_info = self.pro.query('namechange', end_date=date)
+            # 从MongoDB获取历史名称变更信息（已预先同步，避免每次调用API）
+            namechange_info = self.namechange_service.get_namechange_data(end_date=date)
             #获取目前所有股票的名称
             stock_info = self.pro.query('stock_basic')
             
@@ -536,7 +537,7 @@ class StockMarketCleanTSServicePRO(ABC):
     def clean_stock_name(self, data_symbol, date,namechange_info,stock_info):
         try:
             # 获取某只股票的换名历史
-            valid_changes = namechange_info[(namechange_info['ann_date'] <= date) &(namechange_info['ts_code'] == data_symbol)]
+            valid_changes = namechange_info[(namechange_info['ann_date'] <= date) &(namechange_info['symbol'] == data_symbol)]
             if not valid_changes.empty:
                 # 按开始日期排序，获取最新的变更记录
                 latest_change = valid_changes.sort_values('ann_date', ascending=False).iloc[0]

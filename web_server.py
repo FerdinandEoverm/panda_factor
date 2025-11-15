@@ -11,7 +11,7 @@ from fastapi.responses import Response, HTMLResponse
 import base64
 
 # Import data hub routes
-from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, dividend_data_clean, index_market_data_clean, adj_factor_data_clean, valuation_factor_data_clean
+from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, dividend_data_clean, index_market_data_clean, adj_factor_data_clean, valuation_factor_data_clean, namechange_data_clean
 from panda_data_hub.routes.config import config_redefine
 from panda_data_hub.routes.query import data_query
 
@@ -47,6 +47,7 @@ app.include_router(dividend_data_clean.router, prefix="/datahub/api/v1", tags=["
 app.include_router(index_market_data_clean.router, prefix="/datahub/api/v1", tags=["指数行情数据清洗"])
 app.include_router(adj_factor_data_clean.router, prefix="/datahub/api/v1", tags=["复权因子数据清洗"])
 app.include_router(valuation_factor_data_clean.router, prefix="/datahub/api/v1", tags=["估值因子数据清洗"])
+app.include_router(namechange_data_clean.router, prefix="/datahub/api/v1", tags=["股票名称清洗"])
 
 # AI对话API
 app.include_router(chat_router.router, prefix="/llm", tags=["AI对话"])
@@ -179,6 +180,16 @@ async def index_market_clean_page():
             return HTMLResponse(content=f.read())
     else:
         return HTMLResponse(content="<h1>指数行情清洗页面未找到</h1><p>请确保 index_market_clean.html 文件存在</p>", status_code=404)
+
+@app.get("/stock-name-clean")
+async def stock_name_clean_page():
+    """股票名称清洗页面"""
+    html_file = frontend_dir / "stock_name_clean.html"
+    if html_file.exists():
+        with open(html_file, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(content="<h1>股票名称清洗页面未找到</h1><p>请确保 stock_name_clean.html 文件存在</p>", status_code=404)
 
 # ============================================================
 # 根路由
@@ -460,6 +471,15 @@ async def navigation_home():
                     </div>
                     <div class="nav-desc">
                         清洗估值因子数据（PE-TTM、市销率、市现率、流通市值）
+                    </div>
+                </a>
+
+                <a href="/stock-name-clean" class="nav-item">
+                    <div class="nav-title">
+                        股票名称清洗
+                    </div>
+                    <div class="nav-desc">
+                        清洗股票名称变更历史数据（支持全量和增量清洗，按个股查询）
                     </div>
                 </a>
             </div>
