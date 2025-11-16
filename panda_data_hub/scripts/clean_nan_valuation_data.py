@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import datetime
 from panda_common.handlers.database_handler import DatabaseHandler
 from panda_common.logger_config import logger
-from panda_data_hub.services.ts_factor_pb_clean_pro_service import PbCleanerTSProService
+from panda_data_hub.services.ts_factor_valuation_clean_pro_service import FactorValuationCleanerTSProService
 from panda_common.config import get_config
 
 
@@ -13,7 +13,7 @@ def run_nan_valuation_cleaner():
     config = get_config()
 
     # Initialize service
-    valuation_cleaner = PbCleanerTSProService(config)
+    valuation_cleaner = FactorValuationCleanerTSProService(config)
 
     # Query for 600519.SH data
     db_handler = DatabaseHandler(config)
@@ -23,10 +23,8 @@ def run_nan_valuation_cleaner():
     # Assuming 'factor_base' stores the valuation data
     # And 'date' field is in 'YYYYMMDD' format
     nan_records = collection.find({
-        "symbol": "600519.SH",
-        "$or": [
-            {"pb": {"$in": [None, "N/A", "nan", "NaN"]}},
-        ]
+        "symbol": "600519.SH"
+
     }).sort("date", 1)  # Sort by date ascending to process older data first
 
     dates_to_clean = []
@@ -41,7 +39,9 @@ def run_nan_valuation_cleaner():
         logger.info("No N/A valuation data found for 600519.SH. Exiting.")
         return
 
-    dates_to_clean = [i for i in  dates_to_clean if i >'2024-12-01']
+    # dates_to_clean = [i for i in  dates_to_clean if i >'2025-05-01' and i <='2025-08-01']
+    # dates_to_clean = [i for i in  dates_to_clean if i >= '2025-08-14'and i <='2025-09-01']
+    dates_to_clean = ['2025-08-15']
     print(dates_to_clean)
     logger.info(f"Found {len(dates_to_clean)} dates with N/A valuation data for 600519.SH. Cleaning now...")
     import time

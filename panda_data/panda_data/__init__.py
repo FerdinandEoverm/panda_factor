@@ -24,6 +24,10 @@ __all__ = [
     'get_market_min_data',
     'get_market_data',
     'get_available_market_fields',
+    'get_st_stocks_by_date',
+    'get_stocks_by_listing_days',
+    'get_stocks_by_listing_date',
+    'get_non_limit_stocks',
     'get_financial_data',
     'get_latest_financial_data',
     'get_financial_data_by_quarter',
@@ -209,6 +213,83 @@ def get_available_market_fields() -> List[str]:
         raise RuntimeError("Please call init() before using any functions")
 
     return _market_data.get_available_fields()
+
+
+def get_st_stocks_by_date(date: str) -> Optional[List[str]]:
+    """
+    获取指定日期的所有 ST 股票
+    
+    参数:
+        date (str): 参考日期，格式为 YYYYMMDD (例如: "20250115")
+        
+    返回:
+        List[str]: ST 股票代码列表，如果没有找到则返回 None
+    """
+    if _market_data is None:
+        raise RuntimeError("请先调用 init() 函数进行初始化")
+    
+    return _market_data.get_st_stocks_by_date(date)
+
+
+def get_stocks_by_listing_days(date: str, min_trading_days: int = 250) -> Optional[List[str]]:
+    """
+    获取上市天数满足条件的股票列表
+    
+    根据上市日期和参考日期计算上市天数，返回满足最小上市天数要求的股票列表。
+    
+    参数:
+        date (str): 参考日期，格式为 YYYYMMDD (例如: "20250115")
+        min_trading_days (int): 最小上市天数，默认为 250 天
+        
+    返回:
+        List[str]: 满足条件的股票代码列表，如果没有找到则返回 None
+    """
+    if _market_data is None:
+        raise RuntimeError("请先调用 init() 函数进行初始化")
+    
+    return _market_data.get_stocks_by_listing_days(date, min_trading_days)
+
+
+def get_stocks_by_listing_date(date: str, max_days_since_listing: Optional[int] = None) -> Optional[List[str]]:
+    """
+    根据上市日期过滤股票列表
+    
+    返回在参考日期之前上市的股票，可选择限制最大上市天数。
+    
+    参数:
+        date (str): 参考日期，格式为 YYYYMMDD (例如: "20250115")
+        max_days_since_listing (int, 可选): 最大上市天数限制
+            - 如果为 None: 返回所有在参考日期之前上市的股票
+            - 如果设置值: 返回在参考日期前 N 天内上市的股票 (例如: 250 表示最近 250 天内上市的股票)
+        
+    返回:
+        List[str]: 满足条件的股票代码列表，如果没有找到则返回 None
+    """
+    if _market_data is None:
+        raise RuntimeError("请先调用 init() 函数进行初始化")
+    
+    return _market_data.get_stocks_by_listing_date(date, max_days_since_listing)
+
+
+def get_non_limit_stocks(date: str, limit_rate: float = 0.095, symbols: Optional[Union[str, List[str]]] = None) -> Optional[List[str]]:
+    """获取指定日期未触及涨跌停的股票列表（近似过滤）
+
+    参数:
+        date (str): 交易日期，格式为 YYYYMMDD
+        limit_rate (float): 涨跌停幅度，普通股一般为 0.10，ST 股为 0.05，创业板/科创板为 0.20。
+                            这里只用于近似判断，可根据策略需求进行调整。
+        symbols (Union[str, List[str]], 可选): 股票代码或代码列表；为 None 时在当前可用股票全集上判断。
+
+    返回:
+        List[str]: 未涨停且未跌停的股票代码列表；如无数据或全部为涨跌停，则返回 None。
+    """
+    if _market_data is None:
+        raise RuntimeError("请先调用 init() 函数进行初始化")
+
+    if isinstance(symbols, str):
+        symbols = [symbols]
+
+    return _market_data.get_non_limit_stocks(date=date, limit_rate=limit_rate, symbols=symbols)
 
 
 def get_financial_data(

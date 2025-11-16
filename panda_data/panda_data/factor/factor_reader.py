@@ -89,7 +89,11 @@ class FactorReader:
             factors = [f.lower() for f in factors]
         
         # 基础因子列表（来自 factor_base 表）
-        base_factors = ["open", "close", "high", "low", "volume", "market_cap", "turnover", "amount"]
+        base_factors = [
+            "open", "close", "high", "low",
+            "volume", "market_cap", "turnover", "amount",
+            "pb", "pe_ttm", "ps_ttm", "dv_ttm", "circ_mv",
+        ]
         
         # 财务字段列表（来自财务报表：利润表、资产负债表、现金流量表、财务指标）
         # 使用集中配置管理

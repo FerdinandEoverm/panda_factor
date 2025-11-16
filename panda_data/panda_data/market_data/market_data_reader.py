@@ -376,6 +376,66 @@ class MarketDataReader:
             logger.error(f"查询上市日期满足条件的股票时出错 (日期: {date}): {str(e)}")
             return None
 
+    def get_non_limit_stocks(self, date: str, limit_rate: float = 0.095, symbols: Optional[List[str]] = None) -> Optional[List[str]]:
+        """获取指定日期未触及涨跌停的股票列表
+
+        Args:
+            date: 交易日期，格式为 YYYYMMDD
+            limit_rate: 涨跌停幅度，普通股一般为 0.10，ST 股为 0.05，创业板/科创板为 0.20。
+                        这里用于近似判断，可根据策略需要调整。
+            symbols: 可选的股票代码列表；如果为 None，则在当前 universe 中所有股票上判断。
+
+        Returns:
+            未涨停且未跌停的股票代码列表；如无数据或全部为涨跌停，则返回 None。
+        """
+        try:
+            fields = ["open", "high", "low", "close", "pre_close"]
+
+            df = self.get_market_data(
+                symbols=symbols,
+                start_date=date,
+                end_date=date,
+                fields=fields,
+            )
+
+            if df is None or df.empty:
+                logger.warning(f"在 {date} 未查询到行情数据，无法判断涨跌停")
+                return None
+
+            # 仅保留需要的列，确保包含 symbol
+            if "symbol" not in df.columns:
+                logger.error("行情数据中缺少 symbol 字段，无法判断涨跌停")
+                return None
+
+            # 过滤掉缺失关键价格字段的记录
+            df = df.dropna(subset=["close", "pre_close"])
+            if df.empty:
+                logger.warning(f"在 {date} 有效价格数据为空，无法判断涨跌停")
+                return None
+
+            # 计算简单日收益率
+            df["ret"] = df["close"] / df["pre_close"] - 1
+
+            # 采用略低于限制幅度的阈值做近似过滤，避免由于价格精度导致的误判
+            threshold = limit_rate * 0.98
+            abs_ret = df["ret"].abs()
+
+            # 近似认为 |涨跌幅| 大于等于 threshold 的为涨跌停
+            is_limit = abs_ret >= threshold
+            non_limit_df = df[~is_limit]
+
+            if non_limit_df.empty:
+                logger.info(f"在 {date} 所有股票近似视为涨跌停，没有可用标的")
+                return None
+
+            symbols_list = sorted(non_limit_df["symbol"].unique().tolist())
+            logger.info(f"在 {date} 过滤后得到 {len(symbols_list)} 只未触及涨跌停股票")
+            return symbols_list
+
+        except Exception as e:
+            logger.error(f"在 {date} 过滤涨跌停股票时出错: {str(e)}")
+            return None
+
     def get_all_symbols(self):
         """Get all unique symbols using distinct command"""
         collection = self.db_handler.get_mongo_collection(
