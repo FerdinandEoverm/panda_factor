@@ -8,9 +8,6 @@ from panda_data_hub.services.ts_dividend_clean_service import TSDividendCleanSer
 # 创建路由
 router = APIRouter()
 
-# 初始化服务
-dividend_clean_service = TSDividendCleanService()
-
 # 全局进度状态对象
 dividend_progress = {
     "progress_percent": 0,
@@ -67,13 +64,36 @@ async def clean_dividend_daily(background_tasks: BackgroundTasks):
         def progress_callback(progress_info: dict):
             global dividend_progress
             dividend_progress.update(progress_info)
-        
-        dividend_clean_service.set_progress_callback(progress_callback)
-        
-        # 在后台运行清洗任务
-        background_tasks.add_task(
-            _run_daily_clean_task
-        )
+
+        # 在后台运行清洗任务（延迟创建服务实例）
+        def _run_daily_clean_task_inner():
+            global dividend_progress
+            try:
+                service = TSDividendCleanService()
+                service.set_progress_callback(progress_callback)
+                result = service.clean_dividend_daily()
+                if result["status"] == "success":
+                    dividend_progress.update({
+                        "status": "completed",
+                        "progress_percent": 100,
+                        "current_task": "每日分红数据清洗完成",
+                        "end_time": datetime.now().isoformat()
+                    })
+                else:
+                    dividend_progress.update({
+                        "status": "error",
+                        "error_message": result.get("message", "未知错误"),
+                        "end_time": datetime.now().isoformat()
+                    })
+            except Exception as e:
+                logger.error(f"每日清洗任务执行失败: {str(e)}")
+                dividend_progress.update({
+                    "status": "error",
+                    "error_message": str(e),
+                    "end_time": datetime.now().isoformat()
+                })
+
+        background_tasks.add_task(_run_daily_clean_task_inner)
         
         return {
             "status": "success",
@@ -126,11 +146,36 @@ async def clean_dividend_history(request: DividendHistoryRequest, background_tas
             global dividend_progress
             dividend_progress.update(progress_info)
         
-        dividend_clean_service.set_progress_callback(progress_callback)
+        # 在后台运行清洗任务（延迟创建服务实例）
+        def _run_history_clean_task_inner(start_date: str, end_date: str):
+            global dividend_progress
+            try:
+                service = TSDividendCleanService()
+                service.set_progress_callback(progress_callback)
+                result = service.clean_dividend_history(start_date, end_date)
+                if result["status"] == "success":
+                    dividend_progress.update({
+                        "status": "completed",
+                        "progress_percent": 100,
+                        "current_task": "历史分红数据清洗完成",
+                        "end_time": datetime.now().isoformat()
+                    })
+                else:
+                    dividend_progress.update({
+                        "status": "error",
+                        "error_message": result.get("message", "未知错误"),
+                        "end_time": datetime.now().isoformat()
+                    })
+            except Exception as e:
+                logger.error(f"历史清洗任务执行失败: {str(e)}")
+                dividend_progress.update({
+                    "status": "error",
+                    "error_message": str(e),
+                    "end_time": datetime.now().isoformat()
+                })
         
-        # 在后台运行清洗任务
         background_tasks.add_task(
-            _run_history_clean_task,
+            _run_history_clean_task_inner,
             request.start_date,
             request.end_date
         )
@@ -185,11 +230,36 @@ async def clean_dividend_by_symbol(request: DividendSymbolRequest, background_ta
             global dividend_progress
             dividend_progress.update(progress_info)
         
-        dividend_clean_service.set_progress_callback(progress_callback)
+        # 在后台运行清洗任务（延迟创建服务实例）
+        def _run_symbol_clean_task_inner(symbol: str):
+            global dividend_progress
+            try:
+                service = TSDividendCleanService()
+                service.set_progress_callback(progress_callback)
+                result = service.clean_dividend_by_symbol(symbol)
+                if result["status"] == "success":
+                    dividend_progress.update({
+                        "status": "completed",
+                        "progress_percent": 100,
+                        "current_task": f"股票 {symbol} 的分红数据清洗完成",
+                        "end_time": datetime.now().isoformat()
+                    })
+                else:
+                    dividend_progress.update({
+                        "status": "error",
+                        "error_message": result.get("message", "未知错误"),
+                        "end_time": datetime.now().isoformat()
+                    })
+            except Exception as e:
+                logger.error(f"按股票清洗任务执行失败: {str(e)}")
+                dividend_progress.update({
+                    "status": "error",
+                    "error_message": str(e),
+                    "end_time": datetime.now().isoformat()
+                })
         
-        # 在后台运行清洗任务
         background_tasks.add_task(
-            _run_symbol_clean_task,
+            _run_symbol_clean_task_inner,
             request.symbol
         )
         
@@ -239,82 +309,4 @@ async def get_dividend_clean_status():
         logger.error(f"获取分红数据清洗状态异常: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取状态失败: {str(e)}")
 
-
-# 后台任务函数
-def _run_daily_clean_task():
-    """运行每日清洗任务"""
-    global dividend_progress
-    try:
-        result = dividend_clean_service.clean_dividend_daily()
-        if result['status'] == 'success':
-            dividend_progress.update({
-                "status": "completed",
-                "progress_percent": 100,
-                "current_task": "每日分红数据清洗完成",
-                "end_time": datetime.now().isoformat()
-            })
-        else:
-            dividend_progress.update({
-                "status": "error",
-                "error_message": result.get('message', '未知错误')
-            })
-    except Exception as e:
-        logger.error(f"每日清洗任务执行失败: {str(e)}")
-        dividend_progress.update({
-            "status": "error",
-            "error_message": str(e),
-            "end_time": datetime.now().isoformat()
-        })
-
-
-def _run_history_clean_task(start_date: str, end_date: str):
-    """运行历史清洗任务"""
-    global dividend_progress
-    try:
-        result = dividend_clean_service.clean_dividend_history(start_date, end_date)
-        if result['status'] == 'success':
-            dividend_progress.update({
-                "status": "completed",
-                "progress_percent": 100,
-                "current_task": "历史分红数据清洗完成",
-                "end_time": datetime.now().isoformat()
-            })
-        else:
-            dividend_progress.update({
-                "status": "error",
-                "error_message": result.get('message', '未知错误')
-            })
-    except Exception as e:
-        logger.error(f"历史清洗任务执行失败: {str(e)}")
-        dividend_progress.update({
-            "status": "error",
-            "error_message": str(e),
-            "end_time": datetime.now().isoformat()
-        })
-
-
-def _run_symbol_clean_task(symbol: str):
-    """运行按股票清洗任务"""
-    global dividend_progress
-    try:
-        result = dividend_clean_service.clean_dividend_by_symbol(symbol)
-        if result['status'] == 'success':
-            dividend_progress.update({
-                "status": "completed",
-                "progress_percent": 100,
-                "current_task": f"股票 {symbol} 的分红数据清洗完成",
-                "end_time": datetime.now().isoformat()
-            })
-        else:
-            dividend_progress.update({
-                "status": "error",
-                "error_message": result.get('message', '未知错误')
-            })
-    except Exception as e:
-        logger.error(f"按股票清洗任务执行失败: {str(e)}")
-        dividend_progress.update({
-            "status": "error",
-            "error_message": str(e),
-            "end_time": datetime.now().isoformat()
-        })
 

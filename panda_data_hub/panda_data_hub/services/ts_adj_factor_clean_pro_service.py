@@ -22,8 +22,8 @@ class AdjFactorCleanerTSProService(ABC):
         self.db_handler = DatabaseHandler(config)
         self.progress_callback = None
         
-        # 初始化全局 tushare 客户端
-        init_tushare_client(config)
+        # 按需初始化全局 tushare 客户端
+        # init_tushare_client(config)
         self.pro = get_tushare_client()
         
         # 创建锁以序列化 tushare API 调用，避免并发连接超限
@@ -77,9 +77,7 @@ class AdjFactorCleanerTSProService(ABC):
             data['ts_code'] = data['symbol'].apply(get_tushare_suffix)
 
             logger.info("正在获取复权因子数据......")
-            # 使用锁序列化 tushare API 调用，避免并发连接超限
-            with self.tushare_lock:
-                adj_factor_data = self.pro.query("adj_factor", trade_date=date, fields=['ts_code', 'adj_factor'])
+            adj_factor_data = self.pro.query("adj_factor", trade_date=date, fields=['ts_code', 'adj_factor'])
             result_data = data.merge(adj_factor_data[['ts_code', 'adj_factor']], on='ts_code', how='left')
             result_data = result_data.drop(columns=['ts_code'])
 

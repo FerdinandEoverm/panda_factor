@@ -11,7 +11,7 @@ from fastapi.responses import Response, HTMLResponse
 import base64
 
 # Import data hub routes
-from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, dividend_data_clean, index_market_data_clean, adj_factor_data_clean, valuation_factor_data_clean, namechange_data_clean
+from panda_data_hub.routes.data_clean import factor_data_clean, stock_market_data_clean, financial_data_clean, dividend_data_clean, index_market_data_clean, valuation_factor_data_clean, namechange_data_clean, stock_info_data_clean
 from panda_data_hub.routes.config import config_redefine
 from panda_data_hub.routes.query import data_query
 
@@ -45,9 +45,9 @@ app.include_router(stock_market_data_clean.router, prefix="/datahub/api/v1", tag
 app.include_router(financial_data_clean.router, prefix="/datahub/api/v1", tags=["财务数据清洗"])
 app.include_router(dividend_data_clean.router, prefix="/datahub/api/v1", tags=["分红数据清洗"])
 app.include_router(index_market_data_clean.router, prefix="/datahub/api/v1", tags=["指数行情数据清洗"])
-app.include_router(adj_factor_data_clean.router, prefix="/datahub/api/v1", tags=["复权因子数据清洗"])
 app.include_router(valuation_factor_data_clean.router, prefix="/datahub/api/v1", tags=["估值因子数据清洗"])
 app.include_router(namechange_data_clean.router, prefix="/datahub/api/v1", tags=["股票名称清洗"])
+app.include_router(stock_info_data_clean.router, prefix="/datahub/api/v1", tags=["股票基础信息清洗"])
 
 # AI对话API
 app.include_router(chat_router.router, prefix="/llm", tags=["AI对话"])
@@ -67,17 +67,6 @@ if frontend_dir.exists():
     print(f"✓ 前端静态文件已挂载: {frontend_dir}")
 else:
     print(f"⚠ 警告: 前端目录不存在: {frontend_dir}")
-
-# Adj Factor data cleaning page
-@app.get("/adj-factor-clean")
-async def adj_factor_clean_page():
-    """复权因子数据清洗页面"""
-    html_file = frontend_dir / "adj_factor_data_clean.html"
-    if html_file.exists():
-        with open(html_file, 'r', encoding='utf-8') as f:
-            return HTMLResponse(content=f.read())
-    else:
-        return HTMLResponse(content="<h1>复权因子数据清洗页面未找到</h1><p>请确保 adj_factor_data_clean.html 文件存在</p>", status_code=404)
 
 # Valuation Factor data cleaning page
 @app.get("/valuation-factor-clean")
@@ -190,6 +179,16 @@ async def stock_name_clean_page():
             return HTMLResponse(content=f.read())
     else:
         return HTMLResponse(content="<h1>股票名称清洗页面未找到</h1><p>请确保 stock_name_clean.html 文件存在</p>", status_code=404)
+
+@app.get("/stock-info-clean")
+async def stock_info_clean_page():
+    """股票基础信息清洗页面"""
+    html_file = frontend_dir / "stock_info_clean.html"
+    if html_file.exists():
+        with open(html_file, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    else:
+        return HTMLResponse(content="<h1>股票基础信息清洗页面未找到</h1><p>请确保 stock_info_clean.html 文件存在</p>", status_code=404)
 
 # ============================================================
 # 根路由
@@ -456,15 +455,6 @@ async def navigation_home():
                     </div>
                 </a>
                 
-                <a href="/adj-factor-clean" class="nav-item">
-                    <div class="nav-title">
-                        复权因子数据清洗
-                    </div>
-                    <div class="nav-desc">
-                        清洗股票复权因子数据（adj_factor）
-                    </div>
-                </a>
-
                 <a href="/valuation-factor-clean" class="nav-item">
                     <div class="nav-title">
                         估值因子数据清洗
@@ -480,6 +470,15 @@ async def navigation_home():
                     </div>
                     <div class="nav-desc">
                         清洗股票名称变更历史数据（支持全量和增量清洗，按个股查询）
+                    </div>
+                </a>
+
+                <a href="/stock-info-clean" class="nav-item">
+                    <div class="nav-title">
+                        股票基础信息清洗
+                    </div>
+                    <div class="nav-desc">
+                        更新股票、ETF、指数的基础列表信息（stock_info_new）
                     </div>
                 </a>
             </div>
@@ -542,8 +541,8 @@ async def navigation_home():
                 try {
                     // 检查三个服务的状态
                     const services = [
-                        { port: 8080, name: '前端服务' },
-                        { port: 8111, name: '因子计算服务' }
+                        { port: 19080, name: '前端服务' },
+                        { port: 19111, name: '因子计算服务' }
                     ];
                     
                     const statusPromises = services.map(service => 
@@ -604,7 +603,7 @@ async def api_info():
             "AI对话API": "/llm/"
         },
         "status": "running",
-        "note": "因子计算服务运行在 8111 端口"
+        "note": "因子计算服务运行在 19111 端口"
     }
 
 # ============================================================
@@ -615,28 +614,28 @@ def main():
     import uvicorn
     from panda_common.logger_config import logger
     from panda_data_hub.utils.init_app import init_app
-    
+
     logger.info("=" * 60)
     logger.info("天蝎座量化投资系统 Web服务器启动中...")
     logger.info("=" * 60)
     
     # 初始化应用（包括 tushare 连接）
     init_app()
-    
+
     print("\n" + "=" * 60)
     print("  天蝎座量化投资系统 Web服务器")
     print("=" * 60)
     print("\n服务地址:")
-    print("  前端界面: http://localhost:8080/factor/")
-    print("  API文档:  http://localhost:8080/docs")
-    print("  健康检查: http://localhost:8080/health")
+    print("  前端界面: http://localhost:19080/factor/")
+    print("  API文档:  http://localhost:19080/docs")
+    print("  健康检查: http://localhost:19080/health")
     print("\n🔌 API端点:")
     print("  数据清洗: /datahub/api/v1/")
     print("  配置管理: /datahub/api/v1/config_redefine_data_source")
     print("  AI对话:   /llm/")
     print("\n💡 提示:")
     print("  - 此服务包含前端界面、数据清洗和AI对话功能")
-    print("  - 因子计算服务需要单独启动（端口8111）")
+    print("  - 因子计算服务需要单独启动（端口19111）")
     print("  - AI对话功能已集成")
     print("\n⚡ 按 Ctrl+C 停止服务")
     print("=" * 60 + "\n")
@@ -644,7 +643,7 @@ def main():
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8080,
+        port=19080,
         log_level="info"
     )
 

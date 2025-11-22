@@ -56,13 +56,13 @@ class StockMarketCleanTSServicePRO(ABC):
     def check_trading_day_data_completeness(self, date_str):
         """
         检查指定交易日的数据是否已存在且完整
-        
+
         参数:
             date_str: 日期字符串，格式为 "YYYY-MM-DD"
-        
+
         返回:
             bool: 数据完整返回 True，否则返回 False
-        
+
         智能判断标准：
             - 该交易日有数据记录
             - 如果过去5个交易日数据充足，使用动态阈值：平均股票数 - 200
@@ -71,11 +71,11 @@ class StockMarketCleanTSServicePRO(ABC):
         try:
             # 转换日期格式为数据库存储格式 YYYYMMDD
             date_formatted = date_str.replace("-", "")
-            
+
             # 查询该交易日的数据数量
             collection = self.db_handler.mongo_client[self.config["MONGO_DB"]]['stock_market']
             count = collection.count_documents({'date': date_formatted})
-            
+
             # 获取过去5个交易日的股票数量，用于动态阈值计算
             previous_counts = []
             try:
@@ -90,11 +90,11 @@ class StockMarketCleanTSServicePRO(ABC):
                 previous_counts = [item['count'] for item in results]
             except Exception as e:
                 logger.warning(f"获取过去交易日数据时出错: {str(e)}，将使用固定阈值")
-            
+
             # 计算动态阈值
             FIXED_MIN_COUNT = 3000  # 固定最小阈值
             TOLERANCE = 200  # 允许的波动范围
-            
+
             if len(previous_counts) >= 5:
                 # 有足够的历史数据，使用动态阈值
                 avg_count = sum(previous_counts) / len(previous_counts)
@@ -108,16 +108,18 @@ class StockMarketCleanTSServicePRO(ABC):
                 min_threshold = FIXED_MIN_COUNT
                 threshold_type = "固定"
                 logger.debug(f"历史交易日数据不足({len(previous_counts)}个)，使用固定阈值: {min_threshold}")
-            
+
             is_complete = count >= min_threshold
-            
+
             if is_complete:
-                logger.info(f"交易日 {date_str} 数据已存在且完整 (股票数: {count}, {threshold_type}阈值: {min_threshold})")
+                logger.info(
+                    f"交易日 {date_str} 数据已存在且完整 (股票数: {count}, {threshold_type}阈值: {min_threshold})")
             else:
-                logger.info(f"交易日 {date_str} 数据不完整或缺失 (股票数: {count}, {threshold_type}阈值: {min_threshold})")
-            
+                logger.info(
+                    f"交易日 {date_str} 数据不完整或缺失 (股票数: {count}, {threshold_type}阈值: {min_threshold})")
+
             return is_complete
-            
+
         except Exception as e:
             logger.error(f"检查交易日 {date_str} 数据完整性时出错: {str(e)}")
             # 出错时保守处理，返回 False 以触发重新清洗
@@ -127,7 +129,7 @@ class StockMarketCleanTSServicePRO(ABC):
 
         logger.info("Starting market data cleaning for tushare")
         logger.info(f"强制更新模式: {'是' if force_update else '否'}")
-        
+
         # 初始化进度信息
         if self.progress_callback:
             self.progress_callback({
@@ -137,31 +139,15 @@ class StockMarketCleanTSServicePRO(ABC):
                 "total_count": 0,
                 "status": "running"
             })
-        
-        # 在开始前验证 token（使用已有的连接，避免创建新连接）
-        logger.info("验证 Tushare Token...")
-        is_valid, error_message = validate_tushare_token(self.pro)
-        if not is_valid:
-            logger.error(f"Tushare Token 验证失败: {error_message}")
-            if self.progress_callback:
-                self.progress_callback({
-                    "progress_percent": 0,
-                    "current_task": "Token 验证失败",
-                    "error_message": error_message,
-                    "status": "error",
-                    "processed_count": 0,
-                    "total_count": 0
-                })
-            raise TushareTokenError(error_message)
-        
+
         logger.info("Tushare Token 验证成功，开始数据清洗")
-        
+
         # 转换日期格式：20250930 -> 2025-09-30
         if len(start_date) == 8 and start_date.isdigit():
             start_date = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}"
         if len(end_date) == 8 and end_date.isdigit():
             end_date = f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:]}"
-        
+
         logger.info(f"日期范围: {start_date} 至 {end_date}")
 
         # 更新进度
@@ -171,32 +157,49 @@ class StockMarketCleanTSServicePRO(ABC):
             })
 
         # 获取交易日
-        date_range = pd.date_range(start=start_date, end=end_date, freq='D')
+        # 使用一次 trade_cal 查询整个日期区间，避免逐日调用 ts_is_trading_day 导致过多请求
         all_trading_days = []
         try:
-            for date in date_range:
-                date_str = datetime.strftime(date, "%Y-%m-%d")
-                if ts_is_trading_day(date_str, self.pro):
+            # 转换为 YYYYMMDD 格式供 trade_cal 使用
+            start_cal = start_date.replace("-", "")
+            end_cal = end_date.replace("-", "")
+
+            # 使用锁序列化 tushare API 调用，避免并发连接超限
+
+            cal_df = self.pro.query(
+                'trade_cal',
+                exchange='SSE',
+                start_date=start_cal,
+                end_date=end_cal
+            )
+
+            if cal_df is not None and not cal_df.empty:
+                # 只保留 is_open == 1 的交易日，并按日期排序
+                open_days = cal_df[cal_df['is_open'] == 1].sort_values('cal_date')
+                for _, row in open_days.iterrows():
+                    cal_date = row['cal_date']  # 形如 20251115
+                    date_str = f"{cal_date[:4]}-{cal_date[4:6]}-{cal_date[6:]}"
                     all_trading_days.append(date_str)
-                else:
-                    logger.info(f"跳过非交易日: {date_str}")
-        except TushareTokenError as e:
-            # 捕获 token 错误并传递给前端
-            error_msg = f"Tushare Token 错误：{str(e)}\n\n请检查您的 Tushare Token 配置。"
+            else:
+                logger.warning(f"在 {start_date} 至 {end_date} 范围内未获取到任何交易日")
+
+        except Exception as e:
+            # 这里如果仍然是 Token/IP 等错误，会直接记录并抛出
+            error_msg = f"获取交易日列表失败: {str(e)}"
             logger.error(error_msg)
             if self.progress_callback:
                 self.progress_callback({
                     "progress_percent": 0,
-                    "current_task": "Token 错误",
+                    "current_task": "获取交易日列表失败",
                     "error_message": error_msg,
                     "status": "error",
                     "processed_count": 0,
                     "total_count": 0
                 })
             raise
-        
+
         logger.info(f"找到 {len(all_trading_days)} 个交易日")
-        
+
         # 检查已存在的完整数据（如果不是强制更新模式）
         trading_days = []
         skipped_days = []
@@ -211,16 +214,16 @@ class StockMarketCleanTSServicePRO(ABC):
                     skipped_days.append(date_str)
                 else:
                     trading_days.append(date_str)
-            
+
             logger.info(f"已跳过 {len(skipped_days)} 个已完整的交易日")
             logger.info(f"需要处理 {len(trading_days)} 个交易日")
-            
+
             if skipped_days:
                 logger.info(f"跳过的交易日: {', '.join(skipped_days[:5])}{'...' if len(skipped_days) > 5 else ''}")
-        
+
         total_days = len(trading_days)
         processed_days = 0
-        
+
         # 初始化进度信息
         if self.progress_callback:
             skip_info = f"（已跳过 {len(skipped_days)} 个完整交易日）" if skipped_days else ""
@@ -250,7 +253,7 @@ class StockMarketCleanTSServicePRO(ABC):
                     "status": "completed"
                 })
             return
-        
+
         # 根据交易日去循环
         with tqdm(total=len(trading_days), desc="Processing Trading Days") as pbar:
             # 使用单线程处理，避免并发导致 tushare 连接超限
@@ -260,7 +263,7 @@ class StockMarketCleanTSServicePRO(ABC):
                     # 更新进度信息
                     processed_days += 1
                     progress = int((processed_days / total_days) * 100)
-                    
+
                     if self.progress_callback:
                         self.progress_callback({
                             "progress_percent": progress,
@@ -272,17 +275,17 @@ class StockMarketCleanTSServicePRO(ABC):
                             "trading_days_processed": processed_days,
                             "trading_days_total": total_days,
                         })
-                    
+
                     self.clean_meta_market_data(date_str=date)
                     pbar.update(1)
                     logger.info(f"完成处理交易日: {date} ({processed_days}/{total_days})")
-                    
+
                     # 每次请求后添加短暂延迟，避免 API 限流
                     time.sleep(0.5)
-                    
+
                 except Exception as e:
                     logger.error(f"处理交易日 {date} 失败: {e}")
-                    
+
                     # 即使失败也更新进度
                     if self.progress_callback:
                         progress = int((processed_days / total_days) * 100)
@@ -295,9 +298,9 @@ class StockMarketCleanTSServicePRO(ABC):
                             "error_message": f"处理 {date} 失败: {str(e)[:100]}...",
                         })
                     pbar.update(1)
-        
+
         logger.info("所有交易日数据处理完成")
-        
+
         # 发送完成状态
         if self.progress_callback:
             skip_info = f"，跳过 {len(skipped_days)} 个已完整的交易日" if skipped_days else ""
@@ -318,11 +321,16 @@ class StockMarketCleanTSServicePRO(ABC):
             date = date_str.replace("-", "")
             #  获取当日股票的历史行情
             # 使用锁序列化 tushare API 调用，避免并发连接超限
+            import os
+            pid = os.getpid()
+            logger.info(f"[Tushare][pid={pid}] 准备调用 daily 接口, trade_date={date}")
             with self.tushare_lock:
                 price_data = self.pro.query('daily', trade_date=date)
+            logger.info(
+                f"[Tushare][pid={pid}] 完成调用 daily 接口, trade_date={date}, 返回 {len(price_data) if price_data is not None else 0} 行")
             # 重置股票行情数据索引
             price_data.reset_index(drop=False, inplace=True)
-            
+
             total_stocks = len(price_data)
             logger.info(f"开始处理 {date_str} 的数据，共 {total_stocks} 只股票")
             if self.progress_callback:
@@ -333,29 +341,35 @@ class StockMarketCleanTSServicePRO(ABC):
                     "stock_progress_percent": 0,
                     "last_message": f"开始处理 {date_str} 的数据，共 {int(total_stocks)} 只股票"
                 })
-            
+
             # 洗 index_components列
             price_data['index_component'] = None
 
             # tushare关于中证500和中证1000这两个指数只有每月的最后一个交易日才有数据，对于沪深300成分股是每月的第一个交易日和最后一个交易日才有数据
             # 根据日期获取当月三个指数的
-            mid_date,last_date = get_previous_month_dates(date_str = date)
+            mid_date, last_date = get_previous_month_dates(date_str=date)
             # 使用锁序列化 tushare API 调用，避免并发连接超限
+            logger.info(
+                f"[Tushare][pid={pid}] 准备调用 index_weight 接口获取指数成分, trade_date={date}, mid_date={mid_date}, last_date={last_date}")
             with self.tushare_lock:
                 # 沪深300
                 hs_300 = self.pro.query('index_weight', index_code='399300.SZ', start_date=mid_date, end_date=last_date)
                 # 中证500
                 zz_500 = self.pro.query('index_weight', index_code='000905.SH', start_date=mid_date, end_date=last_date)
                 # 中证1000
-                zz_1000 = self.pro.query('index_weight', index_code='000852.SH', start_date=mid_date, end_date=last_date)
-            
+                zz_1000 = self.pro.query('index_weight', index_code='000852.SH', start_date=mid_date,
+                                         end_date=last_date)
+            logger.info(
+                f"[Tushare][pid={pid}] 完成调用 index_weight 接口, hs_300={len(hs_300) if hs_300 is not None else 0}, zz_500={len(zz_500) if zz_500 is not None else 0}, zz_1000={len(zz_1000) if zz_1000 is not None else 0}")
+
             processed_stocks = 0
             for idx, row in price_data.iterrows():
                 try:
-                    component = self.clean_index_components(data_symbol=row['ts_code'], date=date,hs_300 =hs_300,zz_500 = zz_500,zz_1000 = zz_1000)
+                    component = self.clean_index_components(data_symbol=row['ts_code'], date=date, hs_300=hs_300,
+                                                            zz_500=zz_500, zz_1000=zz_1000)
                     price_data.at[idx, 'index_component'] = component
                     processed_stocks += 1
-                    
+
                     # 每处理100只股票记录一次进度（避免日志过多）
                     if processed_stocks % 100 == 0:
                         logger.info(f"处理指数成分股进度: {processed_stocks}/{total_stocks} ({date_str})")
@@ -364,13 +378,13 @@ class StockMarketCleanTSServicePRO(ABC):
                                 "stock_phase": "index_component",
                                 "stock_processed": int(processed_stocks),
                                 "stock_total": int(total_stocks),
-                                "stock_progress_percent": int(processed_stocks/ max(1,total_stocks) * 100),
+                                "stock_progress_percent": int(processed_stocks / max(1, total_stocks) * 100),
                                 "last_message": f"指数成分: {int(processed_stocks)}/{int(total_stocks)} ({date_str})"
                             })
                 except Exception as e:
                     logger.error(f"Failed to clean index for {row['ts_code']} on {date}: {str(e)}")
                     continue
-            
+
             logger.info(f"完成指数成分股清洗: {processed_stocks}/{total_stocks} ({date_str})")
             if self.progress_callback:
                 self.progress_callback({
@@ -385,18 +399,22 @@ class StockMarketCleanTSServicePRO(ABC):
             price_data['name'] = None
             # 从MongoDB获取历史名称变更信息（已预先同步，避免每次调用API）
             namechange_info = self.namechange_service.get_namechange_data(end_date=date)
-            #获取目前所有股票的名称
+            # 获取目前所有股票的名称
             # 使用锁序列化 tushare API 调用，避免并发连接超限
+            logger.info(f"[Tushare][pid={pid}] 准备调用 stock_basic 接口获取股票基础信息")
             with self.tushare_lock:
                 stock_info = self.pro.query('stock_basic')
-            
+            logger.info(
+                f"[Tushare][pid={pid}] 完成调用 stock_basic 接口, 返回 {len(stock_info) if stock_info is not None else 0} 行")
+
             processed_names = 0
             for idx, row in price_data.iterrows():
                 try:
-                    stock_name = self.clean_stock_name(data_symbol=row['ts_code'], date=date,namechange_info = namechange_info,stock_info = stock_info)
+                    stock_name = self.clean_stock_name(data_symbol=row['ts_code'], date=date,
+                                                       namechange_info=namechange_info, stock_info=stock_info)
                     price_data.at[idx, 'name'] = stock_name
                     processed_names += 1
-                    
+
                     # 每处理100只股票记录一次进度
                     if processed_names % 100 == 0:
                         logger.info(f"处理股票名称进度: {processed_names}/{total_stocks} ({date_str})")
@@ -405,15 +423,15 @@ class StockMarketCleanTSServicePRO(ABC):
                                 "stock_phase": "name_clean",
                                 "stock_processed": int(processed_names),
                                 "stock_total": int(total_stocks),
-                                "stock_progress_percent": int(processed_names/ max(1,total_stocks) * 100),
+                                "stock_progress_percent": int(processed_names / max(1, total_stocks) * 100),
                                 "last_message": f"名称清洗: {int(processed_names)}/{int(total_stocks)} ({date_str})"
                             })
                 except Exception as e:
                     logger.error(f"Failed to clean name for {row['ts_code']} on {date}: {str(e)}")
                     continue
-            
+
             logger.info(f"完成股票名称清洗: {processed_names}/{total_stocks} ({date_str})")
-            price_data = price_data.drop(columns=['index','change','pct_chg','amount'])
+            price_data = price_data.drop(columns=['index', 'change', 'pct_chg', 'amount'])
             price_data = price_data.rename(columns={'vol': 'volume'})
             price_data = price_data.rename(columns={'trade_date': 'date'})
             price_data['ts_code'] = price_data['ts_code'].apply(get_exchange_suffix)
@@ -423,14 +441,16 @@ class StockMarketCleanTSServicePRO(ABC):
             price_data['limit_up'] = None
             price_data['limit_down'] = None
             price_data['limit_up'] = price_data.apply(
-                lambda row: calculate_upper_limit(stock_code = row['symbol'], prev_close = row['pre_close'], stock_name = row['name']),
+                lambda row: calculate_upper_limit(stock_code=row['symbol'], prev_close=row['pre_close'],
+                                                  stock_name=row['name']),
                 axis=1
             )
             price_data['limit_down'] = price_data.apply(
-                lambda row: calculate_lower_limit(stock_code = row['symbol'], prev_close = row['pre_close'], stock_name = row['name']),
+                lambda row: calculate_lower_limit(stock_code=row['symbol'], prev_close=row['pre_close'],
+                                                  stock_name=row['name']),
                 axis=1
             )
-            price_data['volume'] = price_data['volume']*100
+            price_data['volume'] = price_data['volume'] * 100
             # 过滤掉北交所的股票
             price_data = price_data[~price_data['symbol'].str.contains('BJ')]
             final_stock_count = len(price_data)
@@ -443,8 +463,8 @@ class StockMarketCleanTSServicePRO(ABC):
                     "stock_progress_percent": 0,
                     "last_message": f"写入数据库: 待写入 {int(final_stock_count)} 只股票 ({date_str})"
                 })
-            
-            #重新排列
+
+            # 重新排列
             desired_order = ['date', 'symbol', 'open', 'high', 'low', 'close', 'volume', 'pre_close',
                              'limit_up', 'limit_down', 'index_component', 'name']
             price_data = price_data[desired_order]
@@ -475,7 +495,7 @@ class StockMarketCleanTSServicePRO(ABC):
         except Exception as e:
             logger.error({e})
 
-    def clean_index_components(self, date,data_symbol, hs_300,zz_500 ,zz_1000):
+    def clean_index_components(self, date, data_symbol, hs_300, zz_500, zz_1000):
         try:
             # 首先查询沪深300
             if data_symbol in hs_300['con_code'].values:
@@ -496,10 +516,11 @@ class StockMarketCleanTSServicePRO(ABC):
             logger.error(f"Error checking if {data_symbol} is in index components on {date}: {str(e)}")
             return None
 
-    def clean_stock_name(self, data_symbol, date,namechange_info,stock_info):
+    def clean_stock_name(self, data_symbol, date, namechange_info, stock_info):
         try:
             # 获取某只股票的换名历史
-            valid_changes = namechange_info[(namechange_info['ann_date'] <= date) &(namechange_info['symbol'] == data_symbol)]
+            valid_changes = namechange_info[
+                (namechange_info['ann_date'] <= date) & (namechange_info['symbol'] == data_symbol)]
             if not valid_changes.empty:
                 # 按开始日期排序，获取最新的变更记录
                 latest_change = valid_changes.sort_values('ann_date', ascending=False).iloc[0]

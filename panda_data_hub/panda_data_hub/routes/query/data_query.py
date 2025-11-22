@@ -43,8 +43,7 @@ async def count_collection(collection: str):
         'financial_income',
         'financial_balance',
         'financial_cashflow',
-        'stock_dividends',
-        'adj_factor'
+        'stock_dividends'
     ]
     
     if collection not in allowed_collections:
@@ -669,97 +668,6 @@ async def stock_market_stats_by_year():
             'success': False,
             'error': str(e),
             'data': {}
-        }
-
-@router.get('/query_adj_factor_data')
-async def query_adj_factor_data(
-    symbol: str = Query(None, description="股票代码（可选，如000001.SZ）"),
-    start_date: str = Query(None, description="开始日期（可选，YYYYMMDD格式）"),
-    end_date: str = Query(None, description="结束日期（可选，YYYYMMDD格式）"),
-    page: int = Query(default=1, ge=1, description="页码"),
-    page_size: int = Query(default=20, ge=1, le=100, description="每页数量")
-):
-    """查询复权因子数据"""
-    from panda_common.handlers.database_handler import DatabaseHandler
-    import math
-    
-    try:
-        db_handler = DatabaseHandler(config)
-        mongo_collection = db_handler.get_mongo_collection(
-            config["MONGO_DB"],
-            'adj_factor'
-        )
-        
-        # 构建查询条件
-        query_filter = {}
-        
-        # 如果指定了股票代码
-        if symbol:
-            query_filter["symbol"] = symbol
-        
-        # 如果指定了日期范围
-        if start_date or end_date:
-            date_filter = {}
-            if start_date:
-                date_filter["$gte"] = start_date
-            if end_date:
-                date_filter["$lte"] = end_date
-            if date_filter:
-                query_filter["date"] = date_filter
-        
-        # 查询总数
-        total_count = mongo_collection.count_documents(query_filter)
-        
-        # 计算总页数
-        total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
-        
-        # 分页查询，按日期倒序排列
-        skip = (page - 1) * page_size
-        cursor = mongo_collection.find(query_filter).sort("date", -1).skip(skip).limit(page_size)
-        
-        # 转换结果并处理NaN值
-        data = []
-        for doc in cursor:
-            # 移除MongoDB的_id字段
-            if '_id' in doc:
-                del doc['_id']
-            
-            # 处理NaN和Inf值，将它们转换为None
-            cleaned_doc = {}
-            for key, value in doc.items():
-                if isinstance(value, float):
-                    # 检查是否是NaN或Inf
-                    if math.isnan(value) or math.isinf(value):
-                        cleaned_doc[key] = None
-                    else:
-                        cleaned_doc[key] = value
-                else:
-                    cleaned_doc[key] = value
-            
-            data.append(cleaned_doc)
-        
-        return {
-            'success': True,
-            'data': data,
-            'pagination': {
-                'page': page,
-                'page_size': page_size,
-                'total': total_count,
-                'total_pages': total_pages
-            },
-            'query': {
-                'symbol': symbol,
-                'start_date': start_date,
-                'end_date': end_date
-            }
-        }
-        
-    except Exception as e:
-        return {
-            'success': False,
-            'error': str(e),
-            'data': [],
-            'pagination': {}
         }
 
 @router.get('/query_valuation_factor_data')

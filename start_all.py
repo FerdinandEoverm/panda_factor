@@ -127,17 +127,17 @@ def main():
             "name": "Web服务 (前端 + 数据API)",
             "command": "python web_server.py",
             "cwd": str(root_dir),
-            "port": 8080,
+            "port": 19080,
             "wait_time": 3,
-            "url": "http://localhost:8080"
+            "url": "http://localhost:19080"
         },
         {
             "name": "因子计算服务",
             "command": "python -m panda_factor_server",
             "cwd": str(root_dir),
-            "port": 8111,
+            "port": 19111,
             "wait_time": 3,
-            "url": "http://localhost:8111"
+            "url": "http://localhost:19111"
         },
         {
             "name": "数据自动更新任务",
@@ -182,12 +182,12 @@ def main():
     
     print_header("服务访问地址")
     print(f"{Colors.BOLD}前端界面:{Colors.ENDC}")
-    print(f"  {Colors.OKCYAN}http://localhost:8080/{Colors.ENDC}")
-    print(f"  {Colors.OKCYAN}http://localhost:8080/factor/{Colors.ENDC} (天蝎座量化投资系统)")
+    print(f"  {Colors.OKCYAN}http://localhost:19080/{Colors.ENDC}")
+    print(f"  {Colors.OKCYAN}http://localhost:19080/factor/{Colors.ENDC} (天蝎座量化投资系统)")
     print()
     print(f"{Colors.BOLD}API文档:{Colors.ENDC}")
-    print(f"  {Colors.OKCYAN}http://localhost:8080/docs{Colors.ENDC} (数据清洗API)")
-    print(f"  {Colors.OKCYAN}http://localhost:8111/docs{Colors.ENDC} (因子计算API)")
+    print(f"  {Colors.OKCYAN}http://localhost:19080/docs{Colors.ENDC} (数据清洗API)")
+    print(f"  {Colors.OKCYAN}http://localhost:19111/docs{Colors.ENDC} (因子计算API)")
     print()
     
     print_header("控制说明")

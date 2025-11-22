@@ -367,16 +367,6 @@ async def navigation_home():
                 #     </div>
                 # </a>
                 
-                <a href="/adj-factor-clean" class="nav-item">
-                    <div class="nav-title">
-                        <span class="nav-icon">📈</span>
-                        复权因子数据清洗
-                    </div>
-                    <div class="nav-desc">
-                        清洗股票复权因子数据（adj_factor）
-                    </div>
-                </a>
-
                 <a href="/valuation-factor-clean" class="nav-item">
                     <div class="nav-title">
                         <span class="nav-icon">📊</span>

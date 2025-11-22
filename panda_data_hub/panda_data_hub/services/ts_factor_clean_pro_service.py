@@ -77,16 +77,12 @@ class FactorCleanerTSProService(ABC):
             data['ts_code'] = data['symbol'].apply(get_tushare_suffix)
 
             logger.info("正在获取市值和换手率数据......")
-            # 使用锁序列化 tushare API 调用，避免并发连接超限
-            with self.tushare_lock:
-                factor_data = self.pro.query('daily_basic', trade_date=date,fields=['ts_code','turnover_rate','total_mv'])
+            factor_data = self.pro.query('daily_basic', trade_date=date,fields=['ts_code','turnover_rate','total_mv'])
             temp_data = data.merge(factor_data[['ts_code','turnover_rate','total_mv']], on='ts_code', how='left')
             temp_data = temp_data.rename(columns={'total_mv': 'market_cap'})
             temp_data = temp_data.rename(columns={'turnover_rate': 'turnover'})
             logger.info("正在获取成交额数据......")
-            # 使用锁序列化 tushare API 调用，避免并发连接超限
-            with self.tushare_lock:
-                price_data = self.pro.query("daily", trade_date=date, fields=['ts_code', 'amount'])
+            price_data = self.pro.query("daily", trade_date=date, fields=['ts_code', 'amount'])
             result_data = temp_data.merge(price_data[['ts_code', 'amount']], on='ts_code', how='left')
             result_data = result_data.drop(columns=['ts_code'])
             # tushare的成交额是以千元为单位的
