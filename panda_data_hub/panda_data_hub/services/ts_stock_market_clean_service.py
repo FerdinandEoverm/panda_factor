@@ -42,11 +42,11 @@ class StockMarketCleanTSServicePRO(ABC):
         self.db_handler = DatabaseHandler(config)
         self.namechange_service = TSNamechangeCleanService(config)
         self.progress_callback = None
-        
+
         # 初始化全局 tushare 客户端
         init_tushare_client(config)
         self.pro = get_tushare_client()
-        
+
         # 创建锁以序列化 tushare API 调用，避免并发连接超限
         self.tushare_lock = threading.Lock()
 

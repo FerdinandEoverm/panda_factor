@@ -6,6 +6,7 @@ from panda_common.logger_config import logger
 from panda_data_hub.utils.mongo_utils import ensure_collection_and_indexes
 from panda_data_hub.utils.tushare_client import init_tushare_client, get_tushare_client
 
+
 class TSStockInfoCleaner:
     def __init__(self, config):
         self.config = config
@@ -33,26 +34,26 @@ class TSStockInfoCleaner:
                 "status": "running",
                 "current_task": "开始清洗股票基础信息...",
                 "processed_count": 0,
-                "total_count": 3 # Stocks, ETFs, Indices
+                "total_count": 3  # Stocks, ETFs, Indices
             })
-            
+
         try:
             self._clean_stocks()
             if self.progress_callback:
                 self.progress_callback({"progress_percent": 33, "current_task": "股票信息清洗完成"})
-                
+
             self._clean_etfs()
             if self.progress_callback:
                 self.progress_callback({"progress_percent": 66, "current_task": "ETF信息清洗完成"})
-                
+
             self._clean_indices()
             if self.progress_callback:
                 self.progress_callback({
-                    "progress_percent": 100, 
+                    "progress_percent": 100,
                     "status": "completed",
                     "current_task": "所有基础信息清洗完成"
                 })
-                
+
             logger.info("Finished stock info cleaning")
         except Exception as e:
             logger.error(f"Failed to clean stock info: {str(e)}")
@@ -67,7 +68,7 @@ class TSStockInfoCleaner:
     def _upsert_data(self, data_list):
         if not data_list:
             return
-        
+
         ensure_collection_and_indexes(table_name='stock_info_new')
         upsert_operations = []
         for record in data_list:
@@ -76,7 +77,7 @@ class TSStockInfoCleaner:
                 {'$set': record},
                 upsert=True
             ))
-        
+
         if upsert_operations:
             self.db_handler.mongo_client[self.config["MONGO_DB"]]['stock_info_new'].bulk_write(upsert_operations)
             logger.info(f"Successfully upserted {len(upsert_operations)} records to stock_info_new")
@@ -87,17 +88,17 @@ class TSStockInfoCleaner:
         包含: L(上市), D(退市), P(暂停上市)
         """
         logger.info("Cleaning stocks info...")
-        
+
         records = []
         now = datetime.now()
-        
+
         # 遍历三种状态
         for status in ['L', 'D', 'P']:
             try:
                 logger.info(f"Fetching stocks with status: {status}")
-                df = self.pro.stock_basic(exchange='', list_status=status, 
-                                        fields='ts_code,symbol,name,area,industry,market,list_date,list_status,delist_date,exchange')
-                
+                df = self.pro.stock_basic(exchange='', list_status=status,
+                                          fields='ts_code,symbol,name,area,industry,market,list_date,list_status,delist_date,exchange')
+
                 for _, row in df.iterrows():
                     record = {
                         'code': int(row['symbol']) if row['symbol'].isdigit() else row['symbol'],
@@ -112,12 +113,12 @@ class TSStockInfoCleaner:
                         'source': 'tushare',
                         'status': 0,
                         'symbol': row['ts_code'],
-                        'type': 0 # Stock
+                        'type': 0  # Stock
                     }
                     records.append(record)
             except Exception as e:
                 logger.error(f"Failed to fetch stocks for status {status}: {str(e)}")
-        
+
         self._upsert_data(records)
 
     def _clean_etfs(self):
@@ -126,9 +127,9 @@ class TSStockInfoCleaner:
         """
         logger.info("Cleaning ETFs info...")
         # 获取所有ETF
-        df = self.pro.fund_basic(market='E', status='L', 
-                               fields='ts_code,name,management,market,list_date,delist_date,issue_date,due_date,list_status')
-        
+        df = self.pro.fund_basic(market='E', status='L',
+                                 fields='ts_code,name,management,market,list_date,delist_date,issue_date,due_date,list_status')
+
         records = []
         now = datetime.now()
         for _, row in df.iterrows():
@@ -146,14 +147,14 @@ class TSStockInfoCleaner:
                 # 'list_status': row['list_status'],
                 'market': row['market'],
                 'name': row['name'],
-                'remark': row['management'], # 使用 management 作为 remark
+                'remark': row['management'],  # 使用 management 作为 remark
                 'source': 'tushare',
                 'status': 0,
                 'symbol': row['ts_code'],
-                'type': 2 # ETF
+                'type': 2  # ETF
             }
             records.append(record)
-        
+
         self._upsert_data(records)
 
     def _clean_indices(self):
@@ -162,7 +163,7 @@ class TSStockInfoCleaner:
         仅包含: 上证, 深证, 沪深300, 创业板, 中证1000
         """
         logger.info("Cleaning Indices info...")
-        
+
         # 指定需要的指数代码
         # 000001.SH: 上证指数
         # 399001.SZ: 深证成指
@@ -172,9 +173,9 @@ class TSStockInfoCleaner:
         target_indices = ['000001.SH', '399001.SZ', '000300.SH', '399006.SZ', '000852.SH']
         ts_codes = ",".join(target_indices)
 
-        df = self.pro.index_basic(ts_code=ts_codes, 
-                                fields='ts_code,name,market,publisher,category,base_date,base_point,list_date')
-        
+        df = self.pro.index_basic(ts_code=ts_codes,
+                                  fields='ts_code,name,market,publisher,category,base_date,base_point,list_date')
+
         records = []
         now = datetime.now()
         for _, row in df.iterrows():
@@ -183,7 +184,7 @@ class TSStockInfoCleaner:
             code = parts[0]
 
             record = {
-                'code': code, 
+                'code': code,
                 'delist_date': None,
                 'exchange': exchange,
                 'insert_time': now,
@@ -195,8 +196,8 @@ class TSStockInfoCleaner:
                 'source': 'tushare',
                 'status': 0,
                 'symbol': row['ts_code'],
-                'type': 1 # Index
+                'type': 1  # Index
             }
             records.append(record)
-        
+
         self._upsert_data(records)

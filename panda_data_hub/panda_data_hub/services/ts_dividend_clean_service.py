@@ -10,7 +10,7 @@ class TSDividendCleanService:
         self.config = get_config()
         self.dividend_cleaner = TSDividendCleaner(self.config)
         self.progress_callback = None
-    
+
     def set_progress_callback(self, callback):
         """设置进度回调函数"""
         self.progress_callback = callback
@@ -34,7 +34,7 @@ class TSDividendCleanService:
     def clean_dividend_history(self, start_date: str, end_date: str):
         """
         执行历史分红数据清洗
-        
+
         参数:
         start_date: 开始日期，格式 YYYYMMDD
         end_date: 结束日期，格式 YYYYMMDD
@@ -55,7 +55,7 @@ class TSDividendCleanService:
     def clean_dividend_by_symbol(self, symbol: str):
         """
         清洗指定股票的分红数据
-        
+
         参数:
         symbol: 股票代码，如 '600000.SH'
         """

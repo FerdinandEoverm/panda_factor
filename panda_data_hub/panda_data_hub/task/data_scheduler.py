@@ -8,7 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 import datetime
 
 from panda_data_hub.data.tushare_stocks_cleaner import TSStockCleaner
-from panda_data_hub.data.tushare_stock_market_cleaner import TSStockMarketCleaner
+from panda_data_hub.services.ts_stock_market_clean_service import StockMarketCleanTSServicePRO
 from panda_data_hub.services.ts_financial_clean_service import FinancialCleanTSService
 from panda_data_hub.services.ts_dividend_clean_service import TSDividendCleanService
 from panda_data_hub.services.ts_index_market_clean_service import TSIndexMarketCleanService
@@ -33,8 +33,10 @@ class DataScheduler:
             stocks_cleaner = TSStockCleaner(self.config)
             stocks_cleaner.clean_metadata()
             # 清洗stock_market表当日数据
-            stock_market_cleaner = TSStockMarketCleaner(self.config)
-            stock_market_cleaner.stock_market_clean_daily()
+            stock_market_service = StockMarketCleanTSServicePRO(self.config)
+            # 使用当天日期作为历史清洗的起止日期，相当于“当日清洗”
+            today = datetime.datetime.now().strftime("%Y%m%d")
+            stock_market_service.stock_market_history_clean(start_date=today, end_date=today, force_update=True)
             # 清洗index_market表当日数据
             index_market_service = TSIndexMarketCleanService()
             index_market_service.clean_index_market_daily()

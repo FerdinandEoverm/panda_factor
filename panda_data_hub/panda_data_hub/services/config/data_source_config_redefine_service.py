@@ -1,21 +1,11 @@
 import os
 from abc import ABC
 import re
-import yaml
 from pathlib import Path
 from panda_common.handlers.database_handler import DatabaseHandler
 from panda_common.logger_config import logger
 from panda_data_hub.models.config_request import ConfigRequest
-from panda_common import config as common_config
-import importlib
 import tushare as ts
-
-modules_to_reload = [
-    'panda_data_hub.routes.data_clean.factor_data_clean',
-    'panda_data_hub.routes.data_clean.stock_market_data_clean',
-    'panda_data_hub.task.data_scheduler',
-    'panda_data_hub.task.factor_clean_scheduler'
-]
 
 class DataSourceConfigRedefine(ABC):
 
@@ -88,31 +78,13 @@ class DataSourceConfigRedefine(ABC):
             os.replace(temp_path, config_path)
             logger.info("配置文件更新成功")
             
-            # 6. 热加载配置到内存
-            self._reload_config()
-            
-            # 7. 重新设置数据源token
+            # 6. 重新设置数据源token
             self._reload_data_source_token(requst)
             
         except Exception as e:
             if temp_path.exists():
                 temp_path.unlink()
             raise RuntimeError(f"配置文件更新失败: {e}")
-    
-    def _reload_config(self):
-        """重新加载配置到内存"""
-        try:
-            from panda_common.config import load_config
-            new_config = load_config()
-            
-            # 更新当前config对象的所有键值
-            common_config.config.clear()
-            common_config.config.update(new_config)
-            
-            logger.info("配置已热加载到内存")
-        except Exception as e:
-            logger.error(f"配置热加载失败: {str(e)}")
-            raise
     
     def _reload_data_source_token(self, request: ConfigRequest):
         """重新设置数据源token - 只支持 Tushare"""

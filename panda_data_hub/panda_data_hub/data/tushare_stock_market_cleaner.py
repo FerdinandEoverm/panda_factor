@@ -10,11 +10,12 @@ from panda_data_hub.utils.mongo_utils import ensure_collection_and_indexes
 from panda_data_hub.utils.ts_utils import calculate_upper_limit, calculate_lower_limit
 from panda_data_hub.utils.tushare_client import init_tushare_client, get_tushare_client
 
+
 class TSStockMarketCleaner(ABC):
     def __init__(self, config):
         self.config = config
         self.db_handler = DatabaseHandler(config)
-        
+
         # 初始化全局 tushare 客户端
         init_tushare_client(config)
         self.pro = get_tushare_client()
@@ -29,7 +30,7 @@ class TSStockMarketCleaner(ABC):
         else:
             logger.info(f"跳过非交易日: {date_str}")
 
-    def clean_meta_market_data(self,date_str):
+    def clean_meta_market_data(self, date_str):
         try:
             date = date_str.replace("-", "")
             #  获取当日股票的历史行情
@@ -40,7 +41,7 @@ class TSStockMarketCleaner(ABC):
             price_data['index_component'] = None
 
             # 根据date获取当月最后一个交易日
-            mid_date,last_date = self.get_previous_month_dates(date)
+            mid_date, last_date = self.get_previous_month_dates(date)
             # 沪深300成分股
             hs_300 = self.pro.query('index_weight', index_code='399300.SZ', start_date=mid_date, end_date=last_date)
             # 中证500成分股
@@ -49,7 +50,8 @@ class TSStockMarketCleaner(ABC):
             zz_1000 = self.pro.query('index_weight', index_code='000852.SH', start_date=mid_date, end_date=last_date)
             for idx, row in price_data.iterrows():
                 try:
-                    component = self.clean_index_components(data_symbol=row['ts_code'], date=date,hs_300 =hs_300,zz_500 = zz_500,zz_1000 = zz_1000)
+                    component = self.clean_index_components(data_symbol=row['ts_code'], date=date, hs_300=hs_300,
+                                                            zz_500=zz_500, zz_1000=zz_1000)
                     price_data.at[idx, 'index_component'] = component
                     logger.info(f"Success to clean index for {row['ts_code']} on {date}")
                 except Exception as e:
@@ -57,7 +59,7 @@ class TSStockMarketCleaner(ABC):
                     continue
             # 洗name列
             price_data['name'] = price_data['ts_code'].apply(self.clean_stock_name)
-            price_data = price_data.drop(columns=['index','change','pct_chg','amount'])
+            price_data = price_data.drop(columns=['index', 'change', 'pct_chg', 'amount'])
             price_data = price_data.rename(columns={'vol': 'volume'})
             price_data = price_data.rename(columns={'trade_date': 'date'})
             price_data['ts_code'] = price_data['ts_code'].apply(get_exchange_suffix)
@@ -66,11 +68,13 @@ class TSStockMarketCleaner(ABC):
             price_data['limit_up'] = None
             price_data['limit_down'] = None
             price_data['limit_up'] = price_data.apply(
-                lambda row: calculate_upper_limit(stock_code = row['symbol'], prev_close = row['pre_close'], stock_name = row['name']),
+                lambda row: calculate_upper_limit(stock_code=row['symbol'], prev_close=row['pre_close'],
+                                                  stock_name=row['name']),
                 axis=1
             )
             price_data['limit_down'] = price_data.apply(
-                lambda row: calculate_lower_limit(stock_code = row['symbol'], prev_close = row['pre_close'], stock_name = row['name']),
+                lambda row: calculate_lower_limit(stock_code=row['symbol'], prev_close=row['pre_close'],
+                                                  stock_name=row['name']),
                 axis=1
             )
             price_data['volume'] = price_data['volume'] * 100
@@ -118,7 +122,7 @@ class TSStockMarketCleaner(ABC):
 
     def clean_stock_name(self, data_symbol):
         logger.info(f"Success to clean name for {data_symbol}")
-        stock_info  = self.pro.query('stock_basic',ts_code = data_symbol, list_status='L')
+        stock_info = self.pro.query('stock_basic', ts_code=data_symbol, list_status='L')
         current_name = stock_info['name'].iloc[0]
         return current_name
 
@@ -146,7 +150,7 @@ class TSStockMarketCleaner(ABC):
             logger.error(f"检查交易日失败 {date}: {str(e)}")
             return False
 
-    def get_previous_month_dates(self,date_str):
+    def get_previous_month_dates(self, date_str):
         """
         根据日期字符串获取上个月的中间日和最后一日
         参数格式：'YYYYMMDD' (如 '20170101')

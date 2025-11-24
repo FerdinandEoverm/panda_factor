@@ -11,7 +11,7 @@ class TSStockCleaner(ABC):
     def __init__(self, config):
         self.config = config
         self.db_handler = DatabaseHandler(config)
-        
+
         # 初始化全局 tushare 客户端
         init_tushare_client(config)
         self.pro = get_tushare_client()
@@ -19,13 +19,13 @@ class TSStockCleaner(ABC):
     def clean_metadata(self):
         try:
             logger.info("Starting metadata cleaning for Tushare")
-            basic_col = ['ts_code','name','list_date','delist_date']
-            stocks = self.pro.query('stock_basic',list_status='L,D',fields=basic_col)
+            basic_col = ['ts_code', 'name', 'list_date', 'delist_date']
+            stocks = self.pro.query('stock_basic', list_status='L,D', fields=basic_col)
             stocks = stocks[stocks["name"] != "UNKNOWN"]
             stocks['symbol'] = stocks['ts_code'].apply(get_exchange_suffix)
             stocks = stocks.drop(columns=['ts_code'])
             stocks['expired'] = False
-            desired_order = ['symbol', 'name', 'list_date','delist_date','expired']
+            desired_order = ['symbol', 'name', 'list_date', 'delist_date', 'expired']
             stocks = stocks[desired_order]
 
             logger.info("Updating MongoDB stocks collection")
