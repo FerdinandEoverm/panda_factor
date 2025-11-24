@@ -132,14 +132,6 @@ def main():
             "url": "http://localhost:19080"
         },
         {
-            "name": "因子计算服务",
-            "command": "python -m panda_factor_server",
-            "cwd": str(root_dir),
-            "port": 19111,
-            "wait_time": 3,
-            "url": "http://localhost:19111"
-        },
-        {
             "name": "数据自动更新任务",
             "command": "python -m panda_data_hub._main_auto_",
             "cwd": str(root_dir),

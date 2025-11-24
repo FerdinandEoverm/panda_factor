@@ -87,12 +87,7 @@ IF(CLOSE > DELAY(CLOSE, 1), 1, -1)
 | 数据源      | 支持情况 | 
 |----------|------|
 | Tushare  | 已上线  |
-| RiceQuant | 已上线   |
-| 迅投       | 已上线   |
-| Tqsdk    | 测试中  |
-| QMT      | 测试中  |
-| Wind     | 对接中  |
-| Choice   | 对接中  |
+
 
 若您有相关数据源需求，请务必联系我们，我们会尽快为您接入。
 
@@ -118,13 +113,19 @@ panda_factor/
 ```
 ## 开发者工具指南
 
-### PyCharm工具
-请将panda_common、panda_data、panda_data_hub、panda_factor、panda_llm、panda_factor_server这几个文件夹右键标记为Mark Directiory as Sources root
-
-### Visual Studio Code （包含Cursor等衍生）
-请在含有Python解释器的终端中进入各个子模块目录下面，执行：
+### devpi 工具
 ```bash
-pip install -e .
+# 登录
+devpi login root
+
+# 创建一个新的索引用于上传
+devpi index -c dev volatile=False
+
+# 切换到新索引
+devpi use http://localhost:18080/root/dev
+
+# 上传包
+devpi upload dist/*
 ```
 
 ### 如何在自己的系统或策略中引用因子
@@ -139,26 +140,6 @@ factor = panda_data.get_factor_by_name(factor_name="VH03cc651", start_date='2024
 
 ## 技术支持
 天蝎座私募基金公司 量化投资团队
-
-
-## 贡献
-
-欢迎贡献代码、提出 Issue 或 PR：
-
-Fork 本项目
-
-新建功能分支 git checkout -b feature/AmazingFeature
-
-提交更改 git commit -m 'Add some AmazingFeature'
-
-推送分支 git push origin feature/AmazingFeature
-
-发起 Pull Request
-
-## 致谢
-感谢量化李不白的粉丝们对我们的支持
-
-感谢所有开源社区的贡献者
 
 ## 许可证
 
