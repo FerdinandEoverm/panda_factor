@@ -410,6 +410,24 @@ async def navigation_home():
                     </div>
                 </a>
                 
+                <a href="/stock-info-clean" class="nav-item">
+                    <div class="nav-title">
+                        股票基础信息清洗
+                    </div>
+                    <div class="nav-desc">
+                        更新股票、ETF、指数的基础列表信息（stock_info_new）
+                    </div>
+                </a>
+
+                <a href="/stock-name-clean" class="nav-item">
+                    <div class="nav-title">
+                        股票名称清洗
+                    </div>
+                    <div class="nav-desc">
+                        清洗股票名称变更历史数据（支持全量和增量清洗，按个股查询）
+                    </div>
+                </a>
+
                 <a href="/stock-market-clean" class="nav-item">
                     <div class="nav-title">
                         股票行情清洗
@@ -461,24 +479,6 @@ async def navigation_home():
                     </div>
                     <div class="nav-desc">
                         清洗估值因子数据（PE-TTM、市销率、市现率、流通市值）
-                    </div>
-                </a>
-
-                <a href="/stock-name-clean" class="nav-item">
-                    <div class="nav-title">
-                        股票名称清洗
-                    </div>
-                    <div class="nav-desc">
-                        清洗股票名称变更历史数据（支持全量和增量清洗，按个股查询）
-                    </div>
-                </a>
-
-                <a href="/stock-info-clean" class="nav-item">
-                    <div class="nav-title">
-                        股票基础信息清洗
-                    </div>
-                    <div class="nav-desc">
-                        更新股票、ETF、指数的基础列表信息（stock_info_new）
                     </div>
                 </a>
             </div>

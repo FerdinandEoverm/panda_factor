@@ -327,6 +327,26 @@ async def navigation_home():
                     </div>
                 </a>
                 
+                <a href="/stock-info-clean" class="nav-item">
+                    <div class="nav-title">
+                        <span class="nav-icon">📂</span>
+                        股票基础信息清洗
+                    </div>
+                    <div class="nav-desc">
+                        更新股票、ETF、指数的基础列表信息（stock_info_new）
+                    </div>
+                </a>
+
+                <a href="/stock-name-clean" class="nav-item">
+                    <div class="nav-title">
+                        <span class="nav-icon">🏷️</span>
+                        股票名称清洗
+                    </div>
+                    <div class="nav-desc">
+                        清洗股票名称变更历史数据（支持全量和增量清洗，按个股查询）
+                    </div>
+                </a>
+
                 <a href="/stock-market-clean" class="nav-item">
                     <div class="nav-title">
                         <span class="nav-icon">📈</span>

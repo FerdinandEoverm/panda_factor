@@ -17,7 +17,7 @@ class SchedulerManager:
         if self.data_scheduler:
             self.data_scheduler.stop()
 
-manager = SchedulerManager()
+# manager = SchedulerManager()
 
 def signal_handler(signum, frame):
     logger.info("Received shutdown signal, stopping scheduler...")
@@ -39,6 +39,7 @@ if __name__ == "__main__":
         manager.data_scheduler.schedule_data()
         manager.data_scheduler.schedule_financial_data()
         manager.data_scheduler.schedule_dividend_data()
+        manager.data_scheduler.schedule_valuation_factor()
         # 创建并启动调度器（因子）
         manager.factor_scheduler = FactorCleanerScheduler()
         manager.factor_scheduler.schedule_data()
